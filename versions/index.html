@@ -57,6 +57,13 @@ nav .wrap{display:flex;align-items:center;gap:28px;height:62px}
 footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:.85rem}
 footer .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
 footer .sp{margin-left:auto;display:flex;gap:20px}
+.socials{display:flex;gap:16px;font-size:1.05rem}
+.socials a{color:var(--muted)}
+.socials a:hover{color:var(--accent);text-decoration:none}
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
 @media(max-width:640px){
   .links{display:none;position:absolute;top:62px;left:0;right:0;background:var(--panel);flex-direction:column;padding:14px 24px 20px;gap:14px;border-bottom:1px solid var(--line)}
   .links.open{display:flex}
@@ -70,7 +77,7 @@ footer .sp{margin-left:auto;display:flex;gap:20px}
 
 <nav>
   <div class="wrap">
-    <a class="brand" href="../index.html" style="text-decoration:none"><i class="fa-solid fa-terminal"></i>NaOS</a>
+    <a class="brand" href="../" style="text-decoration:none"><i class="fa-solid fa-terminal"></i>NaOS</a>
     <div class="links" id="navLinks">
       <a href="../index.html#features">Features</a>
       <a href="../index.html#build">Build</a>
@@ -99,10 +106,11 @@ footer .sp{margin-left:auto;display:flex;gap:20px}
         <span class="feat"><i class="fa-solid fa-hard-drive"></i>AHCI · NVMe · ATA</span>
       </div>
       <div>
-        <a class="btn btn-solid" href="v0.1.0/index.html"><i class="fa-solid fa-arrow-right"></i>v0.1.0 site</a>
+        <a class="btn btn-solid" href="v0.1.0/"><i class="fa-solid fa-arrow-right"></i>v0.1.0 site</a>
       </div>
     </div>
     <div class="actions">
+      <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso"><i class="fa-solid fa-download"></i>NaOS.iso</a>
       <a class="btn btn-ghost" href="v0.1.0/README.md"><i class="fa-brands fa-markdown"></i>README</a>
       <a class="btn btn-ghost" href="v0.1.0/CHANGELOG.md"><i class="fa-solid fa-clock-rotate-left"></i>Changelog</a>
       <a class="btn btn-ghost" href="v0.1.0/IDEA.md"><i class="fa-solid fa-lightbulb"></i>IDEA</a>
@@ -127,7 +135,15 @@ footer .sp{margin-left:auto;display:flex;gap:20px}
 <footer>
   <div class="wrap">
     <span><i class="fa-solid fa-terminal"></i>&nbsp; NaOS — from scratch, in C · <span id="year"></span></span>
-    <span class="sp"><a href="../index.html">Home</a><a href="../LICENCE.md">MIT Licence</a></span>
+    <span class="socials">
+      <a href="https://github.com/nacer0s" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
+      <a href="https://nacer0s.com" aria-label="Website"><i class="fa-solid fa-globe"></i></a>
+      <a href="https://x.com/nacer0s" aria-label="X"><i class="fa-brands fa-x-twitter"></i></a>
+      <a href="https://instagram.com/nacer0s" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+      <a href="https://tiktok.com/@nacer0s" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>
+      <a href="https://t.me/nacer0s" aria-label="Telegram"><i class="fa-brands fa-telegram"></i></a>
+    </span>
+    <span class="sp"><a href="../">Home</a><a href="../LICENCE.md">Licence</a></span>
   </div>
 </footer>
 
@@ -136,6 +152,15 @@ footer .sp{margin-left:auto;display:flex;gap:20px}
   document.getElementById('year').textContent = new Date().getFullYear();
   var b = document.getElementById('burger'), l = document.getElementById('navLinks');
   b.addEventListener('click', function(){ l.classList.toggle('open'); });
+  document.querySelectorAll('.card').forEach(function(el){ el.classList.add('reveal'); });
+  if('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches){
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, {threshold:.12});
+    document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+  } else {
+    document.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('in'); });
+  }
 })();
 </script>
 </body>

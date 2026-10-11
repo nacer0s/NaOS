@@ -13,6 +13,11 @@ TCP client with HTTP `fetch`, default 10.0.2.15/24)
 works under QEMU user-net: add `-netdev user,id=n0 -device e1000,netdev=n0` to `make run`,
 then `net`, `dhcp`, `ping 10.0.2.2`, and `fetch 10.0.2.2 8099 /path` (needs an HTTP server on the host).
 
+## Download & website
+
+* **Bootable ISO:** [NaOS.iso](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso) (67MB, UEFI) — or build it here with `make iso`. CD/USB boot runs diskless (ATAPI + USB-mass are v0.2.0); full files need a SATA/NVMe/IDE disk.
+* **Websites:** [release page](https://naos.nacer0s.com/versions/v0.1.0/) · [project home](https://naos.nacer0s.com/) · [code viewer](https://naos.nacer0s.com/browse.html) (read every file online, no install).
+
 ## Requirements
 
 | Tool | Version verified | Purpose |
@@ -98,4 +103,8 @@ index.html    v0.1.0 website (vanilla HTML/CSS/JS, offline-safe)
 * **Zero prebuilt OS code.** Host toolchain is allowed; OS code is always ours.
 * Log **every** change in [CHANGELOG.md](CHANGELOG.md).
 * Version stamp: `VERSION` in the Makefile → `build/version.h`; `version` prints it.
-* License: [LICENCE.md](../../LICENCE.md) (MIT, project-wide).
+* License: [LICENCE.md](../../LICENCE.md) (custom project licence — free for personal/learning use, no commercial use, no re-hosting as your own, credit us everywhere).
+
+## Author — nacer0s
+
+NaOS v0.1.0 is designed, written and tested by **nacer0s**: GitHub <https://github.com/nacer0s> · Web <https://nacer0s.com> · X <https://x.com/nacer0s> · Instagram <https://instagram.com/nacer0s> · TikTok <https://tiktok.com/@nacer0s> · Telegram <https://t.me/nacer0s> · Threads @nacer0s · Mortakaz @nacer0s.

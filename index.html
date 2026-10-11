@@ -107,6 +107,20 @@ td.mono{font-size:.82rem}
 footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:.85rem}
 footer .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
 footer .sp{margin-left:auto;display:flex;gap:20px}
+.socials{display:flex;gap:16px;font-size:1.05rem}
+.socials a{color:var(--muted)}
+.socials a:hover{color:var(--accent);text-decoration:none}
+#top{position:fixed;right:22px;bottom:22px;width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;display:none;align-items:center;justify-content:center;font-size:.9rem}
+#top:hover{color:var(--accent);border-color:var(--accent)}
+#top.show{display:flex}
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .reveal{opacity:1;transform:none;transition:none}
+  .cursor{animation:none}
+}
 @media(max-width:900px){
   .hero-grid{grid-template-columns:1fr}
   .grid{grid-template-columns:1fr 1fr}
@@ -135,6 +149,7 @@ footer .sp{margin-left:auto;display:flex;gap:20px}
       <a href="#commands">Commands</a>
       <a href="#versions">Versions</a>
       <a href="#build">Build</a>
+      <a href="browse.html">Browse code</a>
       <a href="LICENCE.md">License</a>
     </div>
     <button class="burger" id="burger" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
@@ -148,8 +163,8 @@ footer .sp{margin-left:auto;display:flex;gap:20px}
       <h1>An OS built<br>from <span class="dot">zero</span>.</h1>
       <p class="lead">NaOS is a <strong>usable operating system</strong> written from scratch: its own UEFI bootloader, its own kernel, FAT32 storage, multitasking, USB keyboard and a TCP/IP stack. <strong>No GRUB. No libc. No prebuilt OS code.</strong></p>
       <div class="btns">
-        <a class="btn btn-solid" href="versions/v0.1.0/index.html"><i class="fa-solid fa-rocket"></i>Explore v0.1.0</a>
-        <a class="btn btn-ghost" href="#build"><i class="fa-solid fa-hammer"></i>Build it</a>
+        <a class="btn btn-solid" href="versions/v0.1.0/"><i class="fa-solid fa-rocket"></i>Explore v0.1.0</a>
+        <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso"><i class="fa-solid fa-compact-disc"></i>Download ISO</a>
       </div>
     </div>
     <div class="term" aria-label="NaOS boot log">
@@ -211,13 +226,16 @@ NaOS&gt; </span><span class="cursor"></span></div>
   <div class="wrap">
     <div class="sec-head">
       <h2><i class="fa-solid fa-box-archive"></i>Versions</h2>
-      <p>Each release is a frozen snapshot — source, tools, docs and changelog included. <a href="versions/index.html">Browse all versions →</a></p>
+      <p>Each release is a frozen snapshot — source, tools, docs and changelog included. <a href="versions/">Browse all versions →</a></p>
     </div>
     <div class="panel">
       <span class="ver-tag">current · verified on QEMU</span>
       <h3>NaOS v0.1.0</h3>
       <p>Shell · FAT32 read/write · multitasking + fork · USB keyboard · UDP/DHCP/TCP + HTTP fetch · AHCI/NVMe/ATA.</p>
-      <a class="btn btn-solid" href="versions/v0.1.0/index.html"><i class="fa-solid fa-arrow-right"></i>v0.1.0 details</a>
+      <div class="btns">
+        <a class="btn btn-solid" href="versions/v0.1.0/"><i class="fa-solid fa-arrow-right"></i>v0.1.0 details</a>
+        <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso"><i class="fa-solid fa-download"></i>NaOS.iso</a>
+      </div>
     </div>
   </div>
 </section>
@@ -235,15 +253,25 @@ export PATH=/opt/cross/bin:$PATH
 make all           <span class="c"># BOOTX64.EFI + KERNEL.ELF</span>
 make esp           <span class="c"># 64M FAT ESP image</span>
 make run           <span class="g"># QEMU + OVMF → NaOS&gt; shell</span></pre>
+    <p style="font-size:.9rem;color:var(--muted);margin-top:14px"><i class="fa-solid fa-compact-disc"></i>&nbsp; No build? Grab <a href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso">NaOS.iso</a> from the release, boot it with Rufus (DD mode, Secure Boot off) — or <a href="browse.html">browse the code online</a>.</p>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
     <span><i class="fa-solid fa-terminal"></i>&nbsp; NaOS — from scratch, in C · <span id="year"></span></span>
-    <span class="sp"><a href="LICENCE.md">MIT Licence</a><a href="versions/index.html">Versions</a></span>
+    <span class="socials">
+      <a href="https://github.com/nacer0s" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
+      <a href="https://nacer0s.com" aria-label="Website"><i class="fa-solid fa-globe"></i></a>
+      <a href="https://x.com/nacer0s" aria-label="X"><i class="fa-brands fa-x-twitter"></i></a>
+      <a href="https://instagram.com/nacer0s" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+      <a href="https://tiktok.com/@nacer0s" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>
+      <a href="https://t.me/nacer0s" aria-label="Telegram"><i class="fa-brands fa-telegram"></i></a>
+    </span>
+    <span class="sp"><a href="LICENCE.md">Licence</a><a href="versions/">Versions</a></span>
   </div>
 </footer>
+<button id="top" aria-label="Back to top"><i class="fa-solid fa-arrow-up"></i></button>
 
 <script>
 (function(){
@@ -251,6 +279,21 @@ make run           <span class="g"># QEMU + OVMF → NaOS&gt; shell</span></pre>
   var b = document.getElementById('burger'), l = document.getElementById('navLinks');
   b.addEventListener('click', function(){ l.classList.toggle('open'); });
   l.addEventListener('click', function(e){ if(e.target.tagName==='A') l.classList.remove('open'); });
+    /* reveal on scroll */
+  document.querySelectorAll('.card,.group,.panel,.stat').forEach(function(el){ el.classList.add('reveal'); });
+  if('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches){
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, {threshold:.12});
+    document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+  } else {
+    document.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('in'); });
+  }
+  /* back to top */
+  var top = document.getElementById('top');
+  window.addEventListener('scroll', function(){ top.classList.toggle('show', window.scrollY > 600); }, {passive:true});
+  top.addEventListener('click', function(){ window.scrollTo({top:0, behavior:'smooth'}); });
+  /* copy buttons */
   document.querySelectorAll('.copy').forEach(function(btn){
     btn.addEventListener('click', function(){
       var el = document.getElementById(btn.getAttribute('data-copy'));

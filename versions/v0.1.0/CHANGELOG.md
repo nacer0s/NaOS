@@ -402,3 +402,9 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 * `make iso` → `build/NaOS.iso` (67MB, El Torito UEFI, xorriso 1.5.8); `run-iso` (`-cdrom`) boots: bootloader loads `\NaOS\KERNEL.ELF` from CD, `NaOS v0.1.0 - kernel OK`, shell live (`version` correct).
 * CD boot runs diskless by design (ATAPI CD-ROM unsupported): `blk: using ata` → `ata: no IDENTIFY response` → `fat: cannot read boot sector`, `list` → `fat: not ready`. No crash/hang; all non-disk commands work. ATAPI + USB mass storage are v0.2.0.
+
+### Added - 2026-10-11 (website, viewer, licence)
+
+* Vanilla HTML/CSS/JS site: root `index.html` (hero + live-typing boot terminal, features, commands, build), `versions/index.html` (release catalog), `versions/v0.1.0/index.html` (command reference, run guide, limits), `404.html` ("lost sector"), `browse.html` (GitHub-API source viewer — read every file online, no install). Clean directory URLs, scroll-reveal, back-to-top, copy buttons, social footers.
+* `LICENCE.md` replaced (MIT → custom source-available, non-commercial): free personal/learning use, no commercial use, no re-hosting as your own version, attribution to nacer0s required everywhere in public.
+* Root + v0.1.0 READMEs: download links (`NaOS.iso` release asset), website/viewer links, hardware limits, author + socials.
