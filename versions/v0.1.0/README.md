@@ -70,6 +70,8 @@ make iso      # build/NaOS.iso — El Torito UEFI boot image (needs xorriso)
 make run-iso  # boot the ISO itself in QEMU (-cdrom) to verify it
 ```
 
+Note: a CD-booted system runs **diskless** — ATAPI CD-ROM and USB mass storage are v0.2.0 work, so `list` reports `fat: not ready`. The shell itself boots fine and every non-disk command works. Full files need a SATA/NVMe/IDE disk (AHCI → NVMe → ATA).
+
 Flash to USB (Windows: [Rufus](https://rufus.ie) in **DD mode**; Linux: `dd if=build/NaOS.iso of=/dev/sdX bs=4M status=progress`), then boot the stick as a **UEFI** device.
 
 You must know before trying:

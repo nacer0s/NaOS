@@ -397,3 +397,8 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Editing: `Shift+H` uppercases, backspace erases on fb+serial (`Hab\b \bc` → `Hac`).
 * Screenshot: black screen, white banner + live shell transcript, correct RGB order.
 * P2 history preserved above; console is black since P4/P5 (was blue in P2).
+
+### Verified - 2026-10-11 (ISO boot)
+
+* `make iso` → `build/NaOS.iso` (67MB, El Torito UEFI, xorriso 1.5.8); `run-iso` (`-cdrom`) boots: bootloader loads `\NaOS\KERNEL.ELF` from CD, `NaOS v0.1.0 - kernel OK`, shell live (`version` correct).
+* CD boot runs diskless by design (ATAPI CD-ROM unsupported): `blk: using ata` → `ata: no IDENTIFY response` → `fat: cannot read boot sector`, `list` → `fat: not ready`. No crash/hang; all non-disk commands work. ATAPI + USB mass storage are v0.2.0.

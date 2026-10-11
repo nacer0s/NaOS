@@ -173,9 +173,9 @@ File creation rule: ESP is built with `mformat -i build/NaOS.img -F -v NaOS ::` 
 * **TCP DONE (2026-10-11):** UDP sockets + DHCP client (boot lease w/ static fallback) + minimal TCP client (SYN/ACK/retransmit/graceful close) + `fetch` HTTP demo; QEMU user-net verified against host HTTP server.
 * **NVMe DONE (2026-10-11):** polled driver (admin + 1 I/O queue, 512B NSID 1) in `blk` (AHCI→NVMe→ATA); NVMe-only boot verified (FAT on NVMe) + nondestructive selftest.
 * **Full sentences DONE (2026-10-10):** `make-folder`, `make-file`, multi-source `copy`/`move` (relinking rename), `rename`, `go`; no Unix commands remain.
-* **ISO export READY (2026-10-10):** `tools/mkiso.sh` (El Torito UEFI), `make iso`/`run-iso`, real-hardware install guide; needs xorriso (`pacman -S xorriso`) + one CD-boot verification run.
+* **ISO export DONE (2026-10-11):** `tools/mkiso.sh` (El Torito UEFI), `make iso`/`run-iso`, real-hardware install guide; CD-boot verified (boots to shell, runs diskless — ATAPI is v0.2).
 * **Full sentences DONE (2026-10-10):** `make folder`, `copy` (files + recursive folders), `move` (rename / copy+delete); unix aliases removed.
-* Post-v0.1.0 (v0.2.0 ideas, not in scope): TCP listen/accept, DNS resolver, 4K-LBA NVMe, MSI-X interrupts, file seek/append syscalls for programs, more NICs (virtio-net), real-hardware boot reports.
+* Post-v0.1.0 (v0.2.0 ideas, not in scope): TCP listen/accept, DNS resolver, 4K-LBA NVMe, MSI-X interrupts, ATAPI CD-ROM + USB mass storage (ISO/USB boot with files), file seek/append syscalls for programs, more NICs (virtio-net), real-hardware boot reports.
 
 ## 8. Coding Rules (purity + safety)
 
