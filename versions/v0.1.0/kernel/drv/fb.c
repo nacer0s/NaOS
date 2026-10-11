@@ -39,6 +39,7 @@ static char con_cur[CON_COLS];
 static uint32_t con_cur_len, con_pos;
 static uint32_t con_view;   /* lines back from live (0 = live) */
 static uint32_t con_ftotal; /* frozen total while scrolled */
+static int cursor_on;       /* vertical bar currently drawn */
 
 /* The bitmap header layout matches g_cache exactly; just copy it in. */
 static void font_load(void) {
@@ -103,6 +104,7 @@ void fb_clear(uint32_t rgb) {
   con_cur_len = 0;
   con_pos = 0;
   con_view = 0;
+  cursor_on = 0;
   paint_bg();
   g_cx = 0; g_cy = 0;
 }
@@ -188,6 +190,27 @@ static void paint_line(uint32_t idx, uint32_t srow, uint32_t cols) {
     draw_glyph(con_text[idx][k], k, srow, con_fg[idx], con_bg[idx]);
 }
 
+/* Vertical bar cursor at the live input position. */
+static void cursor_rect(uint32_t rgb) {
+  uint32_t w = (g_scale == 2) ? 4u : 2u;
+  uint32_t h = cell_h();
+  for (uint32_t y = 0; y < h; y++)
+    for (uint32_t x = 0; x < w; x++)
+      put_pixel(g_cx * cell_w() + x, g_cy * cell_h() + y, rgb);
+}
+
+void fb_cursor_show(void) {
+  if (!g_ok || cursor_on) return;
+  cursor_rect(g_fg);
+  cursor_on = 1;
+}
+
+void fb_cursor_hide(void) {
+  if (!g_ok || !cursor_on) return;
+  cursor_rect(g_bg);
+  cursor_on = 0;
+}
+
 static void repaint(void) {
   uint32_t rows = nrows(), cols = ncols();
   /* Frozen view ends `view` lines back; live ends at the newest line.
@@ -195,6 +218,7 @@ static void repaint(void) {
   uint32_t base = con_view ? con_ftotal : con_total;
   uint32_t end = con_view ? (base - con_view) : base;
   uint32_t first, count;
+  cursor_on = 0; /* paint_bg wipes it */
   paint_bg();
   if (!con_view) {
     /* Live: last rows-1 committed lines, input line on the bottom row. */
@@ -264,6 +288,7 @@ void fb_set_font(int scale) {
 void fb_putc(char c) {
   uint32_t cols;
   if (!g_ok) return;
+  fb_cursor_hide(); /* output always wins over the bar */
   cols = ncols();
   if (c == '\n') {
     con_commit();
@@ -306,6 +331,7 @@ void fb_puts(const char *s) {
 void fb_backspace(void) {
   uint32_t cols;
   if (!g_ok) return;
+  fb_cursor_hide();
   cols = ncols();
   if (con_pos == 0) return;
   con_pos--;

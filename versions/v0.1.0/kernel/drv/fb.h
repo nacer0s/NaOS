@@ -23,5 +23,9 @@ int fb_is_live(void);
 /* Font size: 1 = normal 12x24, 2 = big 24x48. Repaints. */
 void fb_set_font(int scale);
 int fb_font(void);
+/* Blinking input cursor (vertical bar). The shell drives show/hide on an
+ * idle timer; any output hides it first. Pixels only, never in the ring. */
+void fb_cursor_show(void);
+void fb_cursor_hide(void);
 
 #endif /* NAOS_FB_H */

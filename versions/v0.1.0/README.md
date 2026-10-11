@@ -66,7 +66,16 @@ make clean           # full rebuild (also needed automatically via header deps)
 QEMU command used by `make run`:
 
 ```
-qemu-system-x86_64 -drive if=pflash,format=raw,unit=0,file="<...>/edk2-x86_64-code.fd",readonly=on -drive format=raw,file=build/NaOS.img -m 256M -serial stdio
+qemu-system-x86_64 -machine q35 -drive if=pflash,format=raw,unit=0,file="<...>/edk2-x86_64-code.fd",readonly=on -drive format=raw,file=build/NaOS.img -m 256M -serial stdio
+```
+
+`-machine q35` is required: stock QEMU boots the `pc` machine, whose OVMF drops to the EFI shell instead of auto-booting us.
+
+If OVMF ever drops you to its shell (busy host can lose the disk-discovery race), boot by hand — the disk is fine, only auto-boot missed it:
+```
+FS0:
+cd EFI\BOOT
+BOOTX64.EFI
 ```
 
 ## ISO + real hardware

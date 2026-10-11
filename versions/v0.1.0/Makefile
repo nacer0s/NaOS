@@ -156,11 +156,11 @@ iso: esp
 
 run: esp
 	@if [ -z "$(OVMF)" ]; then echo "ERROR: OVMF edk2-x86_64-code.fd not found"; exit 1; fi
-	"$(QEMU)" -drive if=pflash,format=raw,unit=0,file="$(OVMF)",readonly=on -drive format=raw,file=$(ESP_IMG) -m 256M -serial stdio
+	"$(QEMU)" -machine q35 -drive if=pflash,format=raw,unit=0,file="$(OVMF)",readonly=on -drive format=raw,file=$(ESP_IMG) -m 256M -serial stdio
 
 run-iso: iso
 	@if [ -z "$(OVMF)" ]; then echo "ERROR: OVMF edk2-x86_64-code.fd not found"; exit 1; fi
-	"$(QEMU)" -drive if=pflash,format=raw,unit=0,file="$(OVMF)",readonly=on -cdrom $(BUILD)/NaOS.iso -m 256M -serial stdio
+	"$(QEMU)" -machine q35 -drive if=pflash,format=raw,unit=0,file="$(OVMF)",readonly=on -cdrom $(BUILD)/NaOS.iso -m 256M -serial stdio
 
 check:
 	./tools/check.sh

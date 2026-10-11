@@ -655,10 +655,30 @@ static void erase_chars(size_t n) {
 /* Read one line with history (no prompt). Returns length. */
 static size_t read_line(char *line) {
   static char saved[LINE_MAX];
+  static uint64_t cur_last;
+  static int cur_on;
   size_t n = 0;
   int nav = -1;
+  cur_on = 0;
+  fb_cursor_hide();
   for (;;) {
-    int c = kbd_getc();
+    int c;
+    if (kbd_empty()) {
+      /* Idle: blink the bar (~4Hz) while on the live tail. */
+      if (fb_is_live()) {
+        if (pit_ticks() - cur_last >= 25) {
+          cur_last = pit_ticks();
+          cur_on = !cur_on;
+          if (cur_on) fb_cursor_show();
+          else fb_cursor_hide();
+        }
+      }
+      __asm__ volatile ("hlt");
+      continue;
+    }
+    cur_on = 0;
+    fb_cursor_hide();
+    c = kbd_getc();
     if (c == KBD_PGUP) {
       fb_scroll_back();
       continue;

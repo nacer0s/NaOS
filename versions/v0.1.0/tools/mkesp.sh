@@ -32,6 +32,11 @@ mcopy -i $IMG $BUILD/README.TXT ::/README.TXT
 # Demo file with a long filename (exercises the kernel LFN reader).
 printf 'If you can read this by its long name, LFN works.\r\nTry: read "long-file-name-demo.txt"\r\n' > "$BUILD/long-file-name-demo.txt"
 mcopy -i $IMG "$BUILD/long-file-name-demo.txt" "::/long-file-name-demo.txt"
+# UEFI shell fallback: if firmware drops to its shell instead of auto-booting
+# (busy-host discovery race), the shell auto-runs \startup.nsh after its
+# countdown. Ours boots the first volume that carries us. CRLF for EDK2.
+printf 'echo NaOS auto-boot...\r\nfor %%d in 0 1 2 3 4 5 6 7 8 9\r\n  if exist FS%%d:\\EFI\\BOOT\\BOOTX64.EFI then\r\n    FS%%d:\\EFI\\BOOT\\BOOTX64.EFI\r\n  endif\r\nendfor\r\n' > $BUILD/startup.nsh
+mcopy -i $IMG $BUILD/startup.nsh ::/startup.nsh
 # Default settings (prompt + console theme). Edit it in NaOS with `edit`.
 printf '# NaOS settings. Lines are key=value (# starts a comment).\r\n# prompt: shell prompt word. fg/bg: console colors as RRGGBB hex.\r\nprompt=NaOS\r\nfg=FFFFFF\r\nbg=000000\r\n' > $BUILD/SETTINGS.TXT
 mcopy -i $IMG $BUILD/SETTINGS.TXT ::/SETTINGS.TXT

@@ -437,6 +437,27 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * The frozen viewport ignored the scroll distance (PgUp barely moved) and the back-cap measured from live totals (uint32 underflow past the oldest frozen line). Viewport now ends `view` lines back, capped against the frozen total; ring enlarged 128 → 256 lines so history stays until `clear`.
 * Verified with screendumps over 3× `help`: two PgUps show two distinct older screens, two PgDns restore live byte-identical.
 
+### Fixed - 2026-10-11 (QEMU machine pin)
+
+* `make run` / `make run-iso` never passed `-machine q35`: stock QEMU boots the `pc` machine, whose OVMF drops to the EFI Internal Shell instead of auto-booting `\EFI\BOOT\BOOTX64.EFI` (reproduced headless; FS0 mounts fine, manual `FS0:` → `BOOTX64.EFI` path works). Both targets now pin `-machine q35`; README command block updated.
+
+### Added - 2026-10-11 (firmware-shell auto-boot)
+
+* `tools/mkesp.sh` writes `\startup.nsh` (ESP root; mirrored to the ISO tree): if firmware ever drops to its shell, it auto-runs after the countdown and boots the first volume carrying `\EFI\BOOT\BOOTX64.EFI` — no typing needed. Zero impact on the normal path (shell never starts there).
+
+### Verified - 2026-10-11 (auto-boot)
+
+* Default-`pc` QEMU, hands-free: serial shows the shell executing our script (`echo NaOS auto-boot...` → `for/if` → launch) followed by `NaOS v0.1.0 - kernel OK`. Manual `FS0:`/`cd`/`BOOTX64.EFI` steps obsolete.
+
+### Added - 2026-10-11 (blinking cursor)
+
+* Vertical-bar input cursor (`kernel/drv/fb.c` + shell idle loop): 2px at normal, 4px at big, ~4Hz, live-tail only, pixels-only (never in the ring or serial log). Any output hides it first; scroll/font/clear paths reset it.
+
+### Verified - 2026-10-11 (cursor)
+
+* QEMU screendumps ~0.6s apart at an idle prompt differ with zero input (bar toggling; prompt otherwise stable). No other spontaneous redraws exist, so the delta is the cursor.
+* Heisenbug on record (host-side, image exonerated): one evening, 4 consecutive q35 boots of a known-good image all dropped to shell; fresh `make esp` + 3 straight boots passed, and the identical save history (`font big`/`normal`) rebooted clean. `mdir` + same-history A/B rule out image corruption — busy-host BDS disk-discovery race. README documents the 3-command shell fallback.
+
 ### Added - 2026-10-11 (website, viewer, licence)
 
 * Vanilla HTML/CSS/JS site: root `index.html` (hero + live-typing boot terminal, features, commands, build), `versions/index.html` (release catalog), `versions/v0.1.0/index.html` (command reference, run guide, limits), `404.html` ("lost sector"), `browse.html` (GitHub-API source viewer — read every file online, no install). Clean directory URLs, scroll-reveal, back-to-top, copy buttons, social footers.
