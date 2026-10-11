@@ -26,6 +26,12 @@ mkdir -p "$ROOT/NaOS"
 cp "$BUILD/KERNEL.ELF" "$ROOT/NaOS/" 2>/dev/null || true
 cp "$BUILD/BOOTX64.EFI" "$ROOT/NaOS/" 2>/dev/null || true
 cp "$BUILD/progs/"*.elf "$ROOT/NaOS/" 2>/dev/null || true
+# UEFI fallback path: some firmwares (e.g. VirtualBox) only offer the CD
+# as bootable if \EFI\BOOT\BOOTX64.EFI exists as a real ISO file, not just
+# inside the El Torito boot image. Our loader then finds \NaOS\KERNEL.ELF
+# on the same ISO filesystem, so boot works on strict and lax firmware.
+mkdir -p "$ROOT/EFI/BOOT"
+cp "$BUILD/BOOTX64.EFI" "$ROOT/EFI/BOOT/" 2>/dev/null || true
 "$XORRISO" -as mkisofs -o "$ISO" -V NaOS \
   -e boot/esp.img -no-emul-boot \
   -r -J "$ROOT"

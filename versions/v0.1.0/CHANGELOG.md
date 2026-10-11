@@ -403,6 +403,10 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * `make iso` → `build/NaOS.iso` (67MB, El Torito UEFI, xorriso 1.5.8); `run-iso` (`-cdrom`) boots: bootloader loads `\NaOS\KERNEL.ELF` from CD, `NaOS v0.1.0 - kernel OK`, shell live (`version` correct).
 * CD boot runs diskless by design (ATAPI CD-ROM unsupported): `blk: using ata` → `ata: no IDENTIFY response` → `fat: cannot read boot sector`, `list` → `fat: not ready`. No crash/hang; all non-disk commands work. ATAPI + USB mass storage are v0.2.0.
 
+### Fixed - 2026-10-11 (ISO boots on strict firmware)
+
+* VirtualBox EFI saw the CD but offered no boot entry: the ISO carried `BOOTX64.EFI` only inside the El Torito boot image. `mkiso.sh` now also ships `\EFI\BOOT\BOOTX64.EFI` as a real ISO file (the UEFI fallback path); our loader finds `\NaOS\KERNEL.ELF` on the same filesystem. Verified present on disc (14,601 bytes) + QEMU regression boot OK.
+
 ### Added - 2026-10-11 (website, viewer, licence)
 
 * Vanilla HTML/CSS/JS site: root `index.html` (hero + live-typing boot terminal, features, commands, build), `versions/index.html` (release catalog), `versions/v0.1.0/index.html` (command reference, run guide, limits), `404.html` ("lost sector"), `browse.html` (GitHub-API source viewer — read every file online, no install). Clean directory URLs, scroll-reveal, back-to-top, copy buttons, social footers.
