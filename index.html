@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NaOS — from-scratch x86_64 UEFI operating system</title>
+<meta name="description" content="NaOS: a usable x86_64 UEFI OS written from scratch in C. Own bootloader, kernel, FAT32, multitasking, USB HID, TCP/IP. No GRUB, no libc, no prebuilt OS code.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0b0d'/%3E%3Ctext x='6' y='23' font-family='monospace' font-size='16' fill='%234ade80'%3E%3E_%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://kit.fontawesome.com/835a2ccfff.js" crossorigin="anonymous"></script>
+<style>
+:root{
+  --bg:#0b0b0d; --panel:#121316; --panel2:#17181c;
+  --line:#23262c; --text:#e9eaee; --muted:#9aa0aa;
+  --accent:#4ade80; --accent-ink:#052e14;
+  --radius:14px; --max:1080px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+.mono,code,pre{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+::selection{background:var(--accent);color:var(--accent-ink)}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+/* nav */
+nav{position:sticky;top:0;z-index:50;background:rgba(11,11,13,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:28px;height:62px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.15rem;color:var(--text)}
+.brand i{color:var(--accent)}
+.badge{font-size:.68rem;font-weight:600;background:rgba(74,222,128,.12);color:var(--accent);border:1px solid rgba(74,222,128,.35);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.links{margin-left:auto;display:flex;gap:22px;font-size:.92rem}
+.links a{color:var(--muted)}
+.links a:hover{color:var(--text);text-decoration:none}
+.burger{display:none;margin-left:auto;background:none;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:7px 11px;cursor:pointer}
+/* hero */
+.hero{padding:84px 0 60px}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:center}
+.kicker{display:inline-block;font-size:.78rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);border:1px solid rgba(74,222,128,.35);border-radius:999px;padding:5px 14px;margin-bottom:20px}
+h1{font-size:clamp(2.6rem,6vw,4.2rem);font-weight:800;line-height:1.05;letter-spacing:-.02em;margin-bottom:18px}
+h1 .dot{color:var(--accent)}
+.lead{color:var(--muted);font-size:1.12rem;max-width:34rem;margin-bottom:30px}
+.lead strong{color:var(--text)}
+.btns{display:flex;gap:14px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:.95rem;border-radius:10px;padding:12px 22px;border:1px solid transparent;cursor:pointer}
+.btn:hover{text-decoration:none}
+.btn-solid{background:var(--accent);color:var(--accent-ink)}
+.btn-solid:hover{background:#6ff097}
+.btn-ghost{border-color:var(--line);color:var(--text);background:var(--panel)}
+.btn-ghost:hover{border-color:var(--accent)}
+/* terminal */
+.term{background:#08090b;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.term-bar{display:flex;align-items:center;gap:8px;padding:11px 15px;border-bottom:1px solid var(--line);background:var(--panel)}
+.term-bar .d{width:11px;height:11px;border-radius:50%}
+.term-bar .t{margin-left:8px;font-size:.75rem;color:var(--muted)}
+.term-body{padding:18px;font-size:.86rem;line-height:1.75;min-height:264px;white-space:pre-wrap;word-break:break-all}
+.t-out{color:#c9cdd4}.t-ok{color:var(--accent)}.t-dim{color:var(--muted)}
+.cursor{display:inline-block;width:9px;height:1.1em;background:var(--accent);vertical-align:text-bottom;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+/* stats */
+.stats{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel)}
+.stats .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+.stat{padding:26px 10px;text-align:center;border-left:1px solid var(--line)}
+.stat:first-child{border-left:none}
+.stat b{display:block;font-size:1.7rem;font-weight:800}
+.stat b em{font-style:normal;color:var(--accent)}
+.stat span{font-size:.82rem;color:var(--muted)}
+/* sections */
+section{padding:72px 0}
+.sec-head{margin-bottom:36px}
+.sec-head h2{font-size:1.9rem;font-weight:800;letter-spacing:-.01em;margin-bottom:8px}
+.sec-head h2 i{color:var(--accent);margin-right:10px}
+.sec-head p{color:var(--muted);max-width:44rem}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:26px;transition:border-color .2s,transform .2s}
+.card:hover{border-color:rgba(74,222,128,.45);transform:translateY(-3px)}
+.card i{font-size:1.5rem;color:var(--accent);margin-bottom:14px}
+.card h3{font-size:1.05rem;font-weight:600;margin-bottom:8px}
+.card p{font-size:.9rem;color:var(--muted)}
+/* commands */
+.groups{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.group{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px}
+.group h3{font-size:.82rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.group h3 i{color:var(--accent);margin-right:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-size:.8rem;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px 11px;color:#c9cdd4}
+/* version teaser + code */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:30px}
+.panel h3{font-size:1.2rem;margin-bottom:6px}
+.ver-tag{display:inline-block;font-size:.75rem;font-weight:600;color:var(--accent);background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.35);border-radius:6px;padding:2px 10px;margin-bottom:14px}
+.panel p{font-size:.92rem;color:var(--muted);margin-bottom:18px}
+pre.code{background:#08090b;border:1px solid var(--line);border-radius:10px;padding:18px;font-size:.83rem;line-height:1.8;overflow-x:auto;color:#c9cdd4}
+pre.code .c{color:#5c6370}
+pre.code .g{color:var(--accent)}
+.copy-row{display:flex;justify-content:flex-end;margin-bottom:8px}
+.copy{background:none;border:1px solid var(--line);border-radius:7px;color:var(--muted);font-size:.75rem;padding:5px 12px;cursor:pointer;font-family:inherit}
+.copy:hover{color:var(--accent);border-color:var(--accent)}
+/* table */
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{text-align:left;padding:13px 14px;border-bottom:1px solid var(--line)}
+th{font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.mono{font-size:.82rem}
+/* footer */
+footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:.85rem}
+footer .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+footer .sp{margin-left:auto;display:flex;gap:20px}
+@media(max-width:900px){
+  .hero-grid{grid-template-columns:1fr}
+  .grid{grid-template-columns:1fr 1fr}
+  .stats .wrap{grid-template-columns:1fr 1fr}
+  .stat:nth-child(3){border-left:none}
+  .stat{border-top:1px solid var(--line)}
+  .stat:nth-child(-n+2){border-top:none}
+}
+@media(max-width:640px){
+  .links{display:none;position:absolute;top:62px;left:0;right:0;background:var(--panel);flex-direction:column;padding:14px 24px 20px;gap:14px;border-bottom:1px solid var(--line)}
+  .links.open{display:flex}
+  .burger{display:block}
+  .grid,.groups,.split{grid-template-columns:1fr}
+  section{padding:52px 0}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="index.html" style="text-decoration:none"><i class="fa-solid fa-terminal"></i>NaOS</a>
+    <span class="badge">v0.1.0</span>
+    <div class="links" id="navLinks">
+      <a href="#features">Features</a>
+      <a href="#commands">Commands</a>
+      <a href="#versions">Versions</a>
+      <a href="#build">Build</a>
+      <a href="LICENCE.md">License</a>
+    </div>
+    <button class="burger" id="burger" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="kicker"><i class="fa-solid fa-microchip"></i>&nbsp; x86_64 UEFI · from scratch · in C</span>
+      <h1>An OS built<br>from <span class="dot">zero</span>.</h1>
+      <p class="lead">NaOS is a <strong>usable operating system</strong> written from scratch: its own UEFI bootloader, its own kernel, FAT32 storage, multitasking, USB keyboard and a TCP/IP stack. <strong>No GRUB. No libc. No prebuilt OS code.</strong></p>
+      <div class="btns">
+        <a class="btn btn-solid" href="versions/v0.1.0/index.html"><i class="fa-solid fa-rocket"></i>Explore v0.1.0</a>
+        <a class="btn btn-ghost" href="#build"><i class="fa-solid fa-hammer"></i>Build it</a>
+      </div>
+    </div>
+    <div class="term" aria-label="NaOS boot log">
+      <div class="term-bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="t mono">qemu — serial</span></div>
+      <div class="term-body mono" id="termBody"><span class="t-out">NaOS v0.1.0 - kernel OK
+</span><span class="t-out">blk: using ahci
+</span><span class="t-out">fat32: spc=1 fat@32 data@2050 root=2 tot=131072
+</span><span class="t-ok">dhcp: ack 10.0.2.15
+</span><span class="t-out">NaOS&gt; version
+NaOS v0.1.0
+build 2026-10-11 (x86_64 UEFI, from scratch)
+NaOS&gt; </span><span class="cursor"></span></div>
+    </div>
+  </div>
+</header>
+
+<div class="stats">
+  <div class="wrap">
+    <div class="stat"><b><em>0</em></b><span>lines of prebuilt OS code</span></div>
+    <div class="stat"><b>v<em>0.1.0</em></b><span>current verified release</span></div>
+    <div class="stat"><b><em>3</em></b><span>storage drivers · AHCI NVMe ATA</span></div>
+    <div class="stat"><b>MI<em>T</em></b><span>license, forever</span></div>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2><i class="fa-solid fa-layer-group"></i>What it does</h2>
+      <p>Every line below the firmware is ours — bootloader, kernel, drivers, filesystem, scheduler, network stack.</p>
+    </div>
+    <div class="grid">
+      <div class="card"><i class="fa-solid fa-power-off"></i><h3>Own UEFI bootloader</h3><p>Custom <span class="mono">BOOTX64.EFI</span> in C: GOP framebuffer, ELF64 parsing, one-shot ExitBootServices, clean handoff to the kernel.</p></div>
+      <div class="card"><i class="fa-solid fa-terminal"></i><h3>Plain-English shell</h3><p>A <span class="mono">NaOS&gt;</span> prompt with 30+ commands, history, output redirect and a themeable prompt via <span class="mono">SETTINGS.TXT</span>.</p></div>
+      <div class="card"><i class="fa-solid fa-hard-drive"></i><h3>Real storage</h3><p>AHCI, NVMe and ATA drivers under one block layer, with a writable FAT32 filesystem and long-filename reads.</p></div>
+      <div class="card"><i class="fa-solid fa-code-fork"></i><h3>Multitasking + fork</h3><p>Ring-3 tasks with private address spaces, preemptive scheduler, syscalls, and copy-on-write <span class="mono">fork()</span>. Disk-loaded ELF programs.</p></div>
+      <div class="card"><i class="fa-solid fa-network-wired"></i><h3>TCP/IP networking</h3><p>E1000 driver with ARP, ICMP ping, UDP sockets, a DHCP client and a TCP client — <span class="mono">fetch</span> pages over HTTP.</p></div>
+      <div class="card"><i class="fa-solid fa-keyboard"></i><h3>USB HID keyboard</h3><p>Polled XHCI stack with hotplug rescan, next to the classic PS/2 driver. PC-speaker beeps included.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="commands" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2><i class="fa-solid fa-keyboard"></i>Speak to it</h2>
+      <p>No Unix-isms. Type what you mean at the <span class="mono">NaOS&gt;</span> prompt.</p>
+    </div>
+    <div class="groups">
+      <div class="group"><h3><i class="fa-solid fa-folder-open"></i>Files</h3><div class="chips mono"><span class="chip">list</span><span class="chip">read</span><span class="chip">go</span><span class="chip">make-folder</span><span class="chip">make-file</span><span class="chip">copy</span><span class="chip">move</span><span class="chip">rename</span><span class="chip">edit</span><span class="chip">delete</span></div></div>
+      <div class="group"><h3><i class="fa-solid fa-gears"></i>System</h3><div class="chips mono"><span class="chip">help</span><span class="chip">version</span><span class="chip">clear</span><span class="chip">print</span><span class="chip">memory</span><span class="chip">test</span><span class="chip">run</span><span class="chip">tasks</span><span class="chip">kill</span><span class="chip">time</span><span class="chip">date</span><span class="chip">uptime</span><span class="chip">beep</span><span class="chip">pci</span><span class="chip">settings</span></div></div>
+      <div class="group"><h3><i class="fa-solid fa-network-wired"></i>Network</h3><div class="chips mono"><span class="chip">net</span><span class="chip">dhcp</span><span class="chip">ping</span><span class="chip">fetch</span></div></div>
+      <div class="group"><h3><i class="fa-solid fa-plug"></i>Hardware &amp; power</h3><div class="chips mono"><span class="chip">usb</span><span class="chip">nvme</span><span class="chip">reboot</span><span class="chip">shutdown</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="versions" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2><i class="fa-solid fa-box-archive"></i>Versions</h2>
+      <p>Each release is a frozen snapshot — source, tools, docs and changelog included. <a href="versions/index.html">Browse all versions →</a></p>
+    </div>
+    <div class="panel">
+      <span class="ver-tag">current · verified on QEMU</span>
+      <h3>NaOS v0.1.0</h3>
+      <p>Shell · FAT32 read/write · multitasking + fork · USB keyboard · UDP/DHCP/TCP + HTTP fetch · AHCI/NVMe/ATA.</p>
+      <a class="btn btn-solid" href="versions/v0.1.0/index.html"><i class="fa-solid fa-arrow-right"></i>v0.1.0 details</a>
+    </div>
+  </div>
+</section>
+
+<section id="build" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2><i class="fa-solid fa-hammer"></i>Build it</h2>
+      <p>Windows + MSYS2 UCRT64, QEMU, and the <span class="mono">/opt/cross</span> toolchain. Full setup in the version README.</p>
+    </div>
+    <div class="copy-row"><button class="copy" data-copy="buildCmd"><i class="fa-regular fa-copy"></i> copy</button></div>
+<pre class="code" id="buildCmd"><span class="c"># inside versions/v0.1.0</span>
+export PATH=/opt/cross/bin:$PATH
+./tools/check.sh  <span class="c"># verify every tool + OVMF</span>
+make all           <span class="c"># BOOTX64.EFI + KERNEL.ELF</span>
+make esp           <span class="c"># 64M FAT ESP image</span>
+make run           <span class="g"># QEMU + OVMF → NaOS&gt; shell</span></pre>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span><i class="fa-solid fa-terminal"></i>&nbsp; NaOS — from scratch, in C · <span id="year"></span></span>
+    <span class="sp"><a href="LICENCE.md">MIT Licence</a><a href="versions/index.html">Versions</a></span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  document.getElementById('year').textContent = new Date().getFullYear();
+  var b = document.getElementById('burger'), l = document.getElementById('navLinks');
+  b.addEventListener('click', function(){ l.classList.toggle('open'); });
+  l.addEventListener('click', function(e){ if(e.target.tagName==='A') l.classList.remove('open'); });
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var el = document.getElementById(btn.getAttribute('data-copy'));
+      var t = el ? el.innerText : '';
+      if(navigator.clipboard) navigator.clipboard.writeText(t).then(function(){
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> copied';
+        setTimeout(function(){ btn.innerHTML = '<i class="fa-regular fa-copy"></i> copy'; }, 1500);
+      });
+    });
+  });
+  /* typing effect: replays the (already visible) boot log */
+  var body = document.getElementById('termBody');
+  var html = body.innerHTML;
+  var plain = body.innerText;
+  var i = 0, out = '';
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  try {
+    body.innerHTML = '<span class="cursor"></span>';
+    var cur;
+    (function tick(){
+      if(i >= plain.length){ body.innerHTML = html; return; }
+      i += 1 + Math.floor(Math.random()*3);
+      out = esc(plain.slice(0, i));
+      body.innerHTML = '<span class="t-out">' + out.replace(/\n/g,'</span>\n<span class="t-out">') + '</span><span class="cursor"></span>';
+      setTimeout(tick, 12);
+    })();
+  } catch(e){ body.innerHTML = html; }
+})();
+</script>
+</body>
+</html>

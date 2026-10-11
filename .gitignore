@@ -1,0 +1,7 @@
+build/
+*.o
+*.efi
+*.elf
+*.img
+*.log
+cross-src/

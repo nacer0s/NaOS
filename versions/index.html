@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Versions — NaOS</title>
+<meta name="description" content="All NaOS releases. Each version is a frozen, self-contained snapshot.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0b0d'/%3E%3Ctext x='6' y='23' font-family='monospace' font-size='16' fill='%234ade80'%3E%3E_%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://kit.fontawesome.com/835a2ccfff.js" crossorigin="anonymous"></script>
+<style>
+:root{
+  --bg:#0b0b0d; --panel:#121316; --panel2:#17181c;
+  --line:#23262c; --text:#e9eaee; --muted:#9aa0aa;
+  --accent:#4ade80; --accent-ink:#052e14;
+  --radius:14px; --max:1080px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+.mono,code{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+::selection{background:var(--accent);color:var(--accent-ink)}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+nav{position:sticky;top:0;z-index:50;background:rgba(11,11,13,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:28px;height:62px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.15rem;color:var(--text)}
+.brand i{color:var(--accent)}
+.links{margin-left:auto;display:flex;gap:22px;font-size:.92rem}
+.links a{color:var(--muted)}
+.links a:hover{color:var(--text);text-decoration:none}
+.burger{display:none;margin-left:auto;background:none;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:7px 11px;cursor:pointer}
+.page-head{padding:70px 0 40px}
+.page-head h1{font-size:clamp(2rem,5vw,3rem);font-weight:800;letter-spacing:-.02em;margin-bottom:10px}
+.page-head h1 i{color:var(--accent);margin-right:12px}
+.page-head p{color:var(--muted);max-width:44rem}
+.cards{display:grid;gap:18px;padding-bottom:80px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:32px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center}
+.card.live:hover{border-color:rgba(74,222,128,.45)}
+.card.next{opacity:.75;border-style:dashed}
+.ver{font-size:2rem;font-weight:800;letter-spacing:-.01em}
+.ver small{font-size:.8rem;font-weight:600;color:var(--accent);border:1px solid rgba(74,222,128,.35);border-radius:999px;padding:3px 12px;margin-left:12px;vertical-align:middle;white-space:nowrap}
+.meta{font-size:.85rem;color:var(--muted);margin:6px 0 14px}
+.feats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.feat{font-size:.78rem;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px 11px;color:#c9cdd4}
+.feat i{color:var(--accent);margin-right:6px}
+.btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:.9rem;border-radius:10px;padding:11px 20px;border:1px solid transparent}
+.btn:hover{text-decoration:none}
+.btn-solid{background:var(--accent);color:var(--accent-ink)}
+.btn-solid:hover{background:#6ff097}
+.btn-ghost{border-color:var(--line);color:var(--text);background:var(--panel2)}
+.btn-ghost:hover{border-color:var(--accent)}
+.actions{display:flex;flex-direction:column;gap:10px;min-width:210px}
+footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:.85rem}
+footer .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+footer .sp{margin-left:auto;display:flex;gap:20px}
+@media(max-width:640px){
+  .links{display:none;position:absolute;top:62px;left:0;right:0;background:var(--panel);flex-direction:column;padding:14px 24px 20px;gap:14px;border-bottom:1px solid var(--line)}
+  .links.open{display:flex}
+  .burger{display:block}
+  .card{grid-template-columns:1fr}
+  .actions{flex-direction:row;flex-wrap:wrap}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="../index.html" style="text-decoration:none"><i class="fa-solid fa-terminal"></i>NaOS</a>
+    <div class="links" id="navLinks">
+      <a href="../index.html#features">Features</a>
+      <a href="../index.html#build">Build</a>
+      <a href="../LICENCE.md">License</a>
+    </div>
+    <button class="burger" id="burger" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+  </div>
+</nav>
+
+<div class="wrap page-head">
+  <h1><i class="fa-solid fa-box-archive"></i>Versions</h1>
+  <p>Every release is frozen forever — source, tools, docs and changelog travel together. Pick one and build it.</p>
+</div>
+
+<div class="wrap cards">
+  <div class="card live">
+    <div>
+      <div class="ver">v0.1.0<small><i class="fa-solid fa-circle-check"></i> current</small></div>
+      <div class="meta mono">2026-10-11 · SemVer · MIT</div>
+      <div class="feats">
+        <span class="feat"><i class="fa-solid fa-terminal"></i>shell</span>
+        <span class="feat"><i class="fa-solid fa-hard-drive"></i>FAT32 R/W</span>
+        <span class="feat"><i class="fa-solid fa-code-fork"></i>fork + CoW</span>
+        <span class="feat"><i class="fa-solid fa-keyboard"></i>USB HID</span>
+        <span class="feat"><i class="fa-solid fa-network-wired"></i>TCP/IP + DHCP</span>
+        <span class="feat"><i class="fa-solid fa-hard-drive"></i>AHCI · NVMe · ATA</span>
+      </div>
+      <div>
+        <a class="btn btn-solid" href="v0.1.0/index.html"><i class="fa-solid fa-arrow-right"></i>v0.1.0 site</a>
+      </div>
+    </div>
+    <div class="actions">
+      <a class="btn btn-ghost" href="v0.1.0/README.md"><i class="fa-brands fa-markdown"></i>README</a>
+      <a class="btn btn-ghost" href="v0.1.0/CHANGELOG.md"><i class="fa-solid fa-clock-rotate-left"></i>Changelog</a>
+      <a class="btn btn-ghost" href="v0.1.0/IDEA.md"><i class="fa-solid fa-lightbulb"></i>IDEA</a>
+    </div>
+  </div>
+
+  <div class="card next">
+    <div>
+      <div class="ver" style="color:var(--muted)">v0.2.0</div>
+      <div class="meta mono">planned — not started</div>
+      <div class="feats">
+        <span class="feat"><i class="fa-solid fa-server"></i>TCP listen</span>
+        <span class="feat"><i class="fa-solid fa-magnifying-glass"></i>DNS</span>
+        <span class="feat"><i class="fa-solid fa-hard-drive"></i>4K-LBA NVMe</span>
+        <span class="feat"><i class="fa-solid fa-bolt"></i>MSI-X</span>
+      </div>
+    </div>
+    <div class="actions"></div>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span><i class="fa-solid fa-terminal"></i>&nbsp; NaOS — from scratch, in C · <span id="year"></span></span>
+    <span class="sp"><a href="../index.html">Home</a><a href="../LICENCE.md">MIT Licence</a></span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  document.getElementById('year').textContent = new Date().getFullYear();
+  var b = document.getElementById('burger'), l = document.getElementById('navLinks');
+  b.addEventListener('click', function(){ l.classList.toggle('open'); });
+})();
+</script>
+</body>
+</html>

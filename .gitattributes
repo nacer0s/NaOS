@@ -1,0 +1,4 @@
+# NaOS: LF everywhere (shell scripts break on CRLF; cross-toolchain likes LF).
+* text=auto eol=lf
+*.png binary
+*.fd binary
