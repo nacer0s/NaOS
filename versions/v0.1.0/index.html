@@ -171,7 +171,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
 
 <section id="run">
   <div class="wrap">
-    <div class="sec-head"><h2><i class="fa-solid fa-play"></i>Run it</h2><p>Inside this folder. One-time host setup is in the <a href="README.md">README</a>. No toolchain? <a href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso"><i class="fa-solid fa-download"></i> Download NaOS.iso</a> and boot it (Rufus, DD mode, Secure Boot off).</p></div>
+    <div class="sec-head"><h2><i class="fa-solid fa-play"></i>Run it</h2><p>Inside this folder. One-time host setup is in the <a href="README.md">README</a>. No toolchain? <a href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso"><i class="fa-solid fa-download"></i> Download NaOS.iso</a> (CD boot) or <a href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.img"><i class="fa-solid fa-hard-drive"></i> NaOS.img</a> (raw disk: attach as a VM hard disk for files, or <span class="mono">dd</span> to USB) — boot UEFI, Secure Boot off.</p></div>
     <div class="copy-row"><button class="copy" data-copy="runCmd"><i class="fa-regular fa-copy"></i> copy</button></div>
 <pre class="code" id="runCmd">export PATH=/opt/cross/bin:$PATH
 ./tools/check.sh   <span class="c"># verify tools + OVMF</span>

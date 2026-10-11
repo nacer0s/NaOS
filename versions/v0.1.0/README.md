@@ -16,6 +16,7 @@ then `net`, `dhcp`, `ping 10.0.2.2`, and `fetch 10.0.2.2 8099 /path` (needs an H
 ## Download & website
 
 * **Bootable ISO:** [NaOS.iso](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso) (67MB, UEFI) — or build it here with `make iso`. CD/USB boot runs diskless (ATAPI + USB-mass are v0.2.0); full files need a SATA/NVMe/IDE disk.
+* **Raw disk image:** [NaOS.img](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.img) (64MB FAT) — attach as a VM hard disk for a boot **with files**, or `dd` to USB.
 * **Websites:** [release page](https://naos.nacer0s.com/versions/v0.1.0/) · [project home](https://naos.nacer0s.com/) · [code viewer](https://naos.nacer0s.com/browse.html) (read every file online, no install).
 
 ## Requirements
