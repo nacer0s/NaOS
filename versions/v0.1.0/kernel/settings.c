@@ -1,6 +1,6 @@
 /* NaOS settings. /SETTINGS.TXT holds `key=value` lines (`#` comments).
- * Known keys: prompt (word), fg / bg (RRGGBB hex). Missing file or bad
- * lines keep built-in defaults. Own code. */
+ * Known keys: prompt (word), fg / bg (RRGGBB hex), font (normal/big).
+ * Missing file or bad lines keep built-in defaults. Own code. */
 #include "settings.h"
 #include "fs/fat32.h"
 #include "drv/fb.h"
@@ -13,6 +13,7 @@
 static char g_prompt[PROMPT_MAX + 1] = "NaOS";
 static uint32_t g_fg = 0xFFFFFF;
 static uint32_t g_bg = 0x000000;
+static int g_font = 1;
 static int g_from_file; /* 1 once a readable file supplied any key */
 
 static int hex_val(char c) {
@@ -78,6 +79,15 @@ static void apply_line(char *line) {
     } else if (naos_strcmp(line, "bg") == 0) {
       uint32_t v;
       if (parse_rgb(val, &v) == 0) { g_bg = v; g_from_file = 1; }
+    } else if (naos_strcmp(line, "font") == 0) {
+      if (naos_strcmp(val, "big") == 0 || naos_strcmp(val, "2") == 0) {
+        g_font = 2;
+        g_from_file = 1;
+      } else if (naos_strcmp(val, "normal") == 0 ||
+                 naos_strcmp(val, "1") == 0) {
+        g_font = 1;
+        g_from_file = 1;
+      }
     }
     /* Unknown keys are ignored (forward compatibility). */
   }
@@ -104,12 +114,61 @@ void settings_load(void) {
     }
   }
   fb_set_colors(g_fg, g_bg);
+  fb_set_font(g_font);
+}
+
+static void put_hex6(char *out, uint32_t v) {
+  static const char kH[] = "0123456789ABCDEF";
+  for (int i = 0; i < 6; i++) out[i] = kH[(v >> (20 - 4 * i)) & 0xF];
+}
+
+/* Rewrite the whole file from memory (fixed key order). 0 ok. */
+int settings_save(void) {
+  static char buf[256];
+  uint32_t n = 0;
+  const char *fontword = (g_font == 2) ? "big" : "normal";
+  size_t i = 0;
+  const char *p1 = "prompt=";
+  while (*p1) buf[n++] = *p1++;
+  while (g_prompt[i] && n + 32 < sizeof(buf)) buf[n++] = g_prompt[i++];
+  buf[n++] = '\n';
+  {
+    const char *p2 = "fg=";
+    while (*p2) buf[n++] = *p2++;
+  }
+  put_hex6(buf + n, g_fg);
+  n += 6;
+  buf[n++] = '\n';
+  {
+    const char *p3 = "bg=";
+    while (*p3) buf[n++] = *p3++;
+  }
+  put_hex6(buf + n, g_bg);
+  n += 6;
+  buf[n++] = '\n';
+  {
+    const char *p4 = "font=";
+    while (*p4) buf[n++] = *p4++;
+  }
+  while (*fontword && n + 2 < sizeof(buf)) buf[n++] = *fontword++;
+  buf[n++] = '\n';
+  if (fat_write("/SETTINGS.TXT", buf, n) != 0) return -1;
+  g_from_file = 1;
+  return 0;
 }
 
 void settings_show(void) {
-  kprintf("prompt=%s fg=%x bg=%x (%s)\n", g_prompt, (unsigned)g_fg,
-          (unsigned)g_bg, g_from_file ? "/SETTINGS.TXT" : "defaults");
+  kprintf("prompt=%s fg=%x bg=%x font=%s (%s)\n", g_prompt, (unsigned)g_fg,
+          (unsigned)g_bg, (g_font == 2) ? "big" : "normal",
+          g_from_file ? "/SETTINGS.TXT" : "defaults");
 }
+
+void settings_set_font(int scale) {
+  g_font = (scale == 2) ? 2 : 1;
+  fb_set_font(g_font);
+}
+
+int settings_font(void) { return g_font; }
 
 const char *settings_prompt(void) { return g_prompt; }
 uint32_t settings_fg(void) { return g_fg; }

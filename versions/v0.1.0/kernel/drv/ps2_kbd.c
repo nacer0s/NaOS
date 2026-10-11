@@ -101,6 +101,8 @@ static int translate_ext(uint8_t sc) {
     case 0x50: return KBD_DOWN;
     case 0x4B: return KBD_LEFT;
     case 0x4D: return KBD_RIGHT;
+    case 0x49: return KBD_PGUP;
+    case 0x51: return KBD_PGDN;
     default: return 0;
   }
 }

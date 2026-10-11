@@ -4,7 +4,7 @@ A usable x86_64 UEFI operating system built **from scratch (0), in C** — no GR
 
 Status: **v0.1.0** (multitasking + isolated address spaces, files, USB, network, NVMe). `BOOTX64.EFI` loads `KERNEL.ELF`, and the kernel runs
 a `NaOS>` shell on a black GOP console with PS/2 and USB-HID keyboard input
-(`help version clear print memory test crash list go read make-folder make-file copy move rename edit delete run tasks kill time date uptime beep pci settings usb nvme net dhcp fetch ping reboot shutdown`), own paging (PML4),
+(`help version clear print memory test crash list go read make-folder make-file copy move rename edit delete run tasks kill time date uptime beep pci settings font usb nvme net dhcp fetch ping reboot shutdown`), own paging (PML4),
 a `kmalloc`/`kfree` heap, an AHCI/NVMe/ATA+FAT32 filesystem (read+write, long filenames), and preemptive multitasking
 (ring-3 tasks with private address spaces, syscalls, `fork()` with copy-on-write, round-robin scheduler,
 disk-loaded ELF programs with file I/O (`open`/`read`/`write`/`close`, stdout on fd 1)). Command output redirects with `<cmd> > <file>`, and `/SETTINGS.TXT`
@@ -78,7 +78,7 @@ make run-iso  # boot the ISO itself in QEMU (-cdrom) to verify it
 
 Note: a CD/USB-booted system runs a **live RAM session** — `BOOTX64.EFI` stages a 40MB FAT image into memory and the kernel mounts it, so `list`/`read`/`run`/`edit` all work with files. Writes live in RAM and vanish on reboot (give the VM ≥256MB). Full persistence needs a SATA/NVMe/IDE disk (AHCI → NVMe → probed ATA → RAM disk, in that order).
 
-VirtualBox: the VM must use EFI (Settings → System → Motherboard → **Enable EFI**) — BIOS mode reports "no bootable medium" for this UEFI-only image. QEMU needs OVMF (`-drive if=pflash,...,file=edk2-x86_64-code.fd`), same as `make run-iso`.
+VirtualBox: create the VM as type **Other/Unknown (64-bit)** (a 32-bit type disables Long Mode and no 64-bit OS can boot), enable EFI (Settings → System → Motherboard → **Enable EFI**), attach the ISO as optical drive — BIOS mode reports "no bootable medium" for this UEFI-only image. QEMU needs OVMF (`-drive if=pflash,...,file=edk2-x86_64-code.fd`), same as `make run-iso`.
 
 Flash to USB (Windows: [Rufus](https://rufus.ie) in **DD mode**; Linux: `dd if=build/NaOS.iso of=/dev/sdX bs=4M status=progress`), then boot the stick as a **UEFI** device.
 

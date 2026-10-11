@@ -274,6 +274,8 @@ static void dispatch(char *line) {
     kprintf("  fetch <ip> <port> </path>\n");
     kprintf("                     HTTP/1.0 GET over TCP, print body\n");
     kprintf("  settings           show prompt and colors (/SETTINGS.TXT)\n");
+    kprintf("  font [normal|big]  console font size (saves to /SETTINGS.TXT)\n");
+    kprintf("  PgUp/PgDn scroll the screen back and forth\n");
     kprintf("  reboot             restart the computer\n");
     kprintf("  shutdown           stop the computer\n");
     kprintf("  <cmd> > <file>     save command output to a file\n");
@@ -284,6 +286,19 @@ static void dispatch(char *line) {
     fb_clear(settings_bg());
   } else if (after(line, "settings")) {
     settings_show();
+  } else if ((a = after(line, "font"))) {
+    if (*a == '\0') {
+      kprintf("font is %s\n", settings_font() == 2 ? "big" : "normal");
+    } else if (naos_strcmp(a, "normal") == 0 || naos_strcmp(a, "big") == 0) {
+      settings_set_font((naos_strcmp(a, "big") == 0) ? 2 : 1);
+      if (settings_save() == 0)
+        kprintf("font is %s (saved)\n", a);
+      else
+        kprintf("font is %s (save failed)\n",
+                settings_font() == 2 ? "big" : "normal");
+    } else {
+      kprintf("usage: font [normal|big]\n");
+    }
   } else if ((a = after(line, "print"))) {
     kprintf("%s\n", a);
   } else if (after(line, "memory")) {
@@ -644,6 +659,15 @@ static size_t read_line(char *line) {
   int nav = -1;
   for (;;) {
     int c = kbd_getc();
+    if (c == KBD_PGUP) {
+      fb_scroll_back();
+      continue;
+    }
+    if (c == KBD_PGDN) {
+      fb_scroll_fwd();
+      continue;
+    }
+    fb_scroll_live(); /* any other key rejoins the live tail */
     if (c == KBD_UP || c == KBD_DOWN) {
       if (g_hcount == 0) continue;
       int oldest = (g_hcount < HIST_N) ? 0 : (g_hcount - HIST_N);

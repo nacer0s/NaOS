@@ -421,6 +421,17 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * QEMU CD boot: `blk: using ramdisk (live)`, `fat32: tot=81920`, `list` shows `PROGS/` + docs; `run /PROGS/hello.elf` → `hello from disk!`; `make-file /LIVE.TXT` persists for the session.
 * VirtualBox (headless, EFI): same `ramdisk (live)` mount + FAT + shell; test VM deleted after.
 
+### Added - 2026-10-11 (scrollback + font size)
+
+* Console text ring (`kernel/drv/fb.c`): every printed char recorded with its colors (128 lines); live output still draws incrementally, scroll keys/font switches/clears repaint from the ring.
+* `PgUp`/`PgDn` (PS/2 set-1 `0x49`/`0x51`, same codes via USB HID): one screen back/forward, view freezes while reading, any shell key rejoins live; flood-while-scrolled rejoins live instead of showing garbage.
+* `font [normal|big]` command: 12x24 vs pixel-doubled 24x48, repaints instantly, persists via new `font=` key + `settings_save()` rewriting `/SETTINGS.TXT`; `settings` shows it; `help` documents both.
+
+### Verified - 2026-10-11 (scrollback + font size)
+
+* QEMU screendumps: post-`help` PgUp changes pixels, PgDn restores the live frame **byte-identical**, `font big` relaids out, `settings` shows `font=big (/SETTINGS.TXT)`.
+* Reboot: `font=big` reloaded from file automatically; `font normal` restores defaults. Zero faults, zero warnings.
+
 ### Added - 2026-10-11 (website, viewer, licence)
 
 * Vanilla HTML/CSS/JS site: root `index.html` (hero + live-typing boot terminal, features, commands, build), `versions/index.html` (release catalog), `versions/v0.1.0/index.html` (command reference, run guide, limits), `404.html` ("lost sector"), `browse.html` (GitHub-API source viewer — read every file online, no install). Clean directory URLs, scroll-reveal, back-to-top, copy buttons, social footers.

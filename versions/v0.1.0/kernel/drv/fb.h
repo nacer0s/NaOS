@@ -14,5 +14,14 @@ void fb_puts(const char *s);
 void fb_backspace(void);
 void fb_put_hex64(uint64_t v);
 void fb_put_uint64(uint64_t v);
+/* Scrollback (PgUp/PgDn): text ring keeps ~128 lines; view freezes while
+ * you read, any shell key jumps back to live. */
+void fb_scroll_back(void); /* one screen up */
+void fb_scroll_fwd(void);  /* one screen down */
+void fb_scroll_live(void); /* jump to live tail */
+int fb_is_live(void);
+/* Font size: 1 = normal 12x24, 2 = big 24x48. Repaints. */
+void fb_set_font(int scale);
+int fb_font(void);
 
 #endif /* NAOS_FB_H */

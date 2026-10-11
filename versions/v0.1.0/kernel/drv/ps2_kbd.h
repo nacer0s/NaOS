@@ -9,6 +9,8 @@
 #define KBD_DOWN  0x101
 #define KBD_LEFT  0x102
 #define KBD_RIGHT 0x103
+#define KBD_PGUP  0x104
+#define KBD_PGDN  0x105
 
 void kbd_init(void);
 void kbd_push(uint8_t sc);   /* called from IRQ1 */
