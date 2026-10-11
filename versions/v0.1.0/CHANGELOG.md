@@ -432,6 +432,11 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * QEMU screendumps: post-`help` PgUp changes pixels, PgDn restores the live frame **byte-identical**, `font big` relaids out, `settings` shows `font=big (/SETTINGS.TXT)`.
 * Reboot: `font=big` reloaded from file automatically; `font normal` restores defaults. Zero faults, zero warnings.
 
+### Fixed - 2026-10-11 (scrollback viewport)
+
+* The frozen viewport ignored the scroll distance (PgUp barely moved) and the back-cap measured from live totals (uint32 underflow past the oldest frozen line). Viewport now ends `view` lines back, capped against the frozen total; ring enlarged 128 → 256 lines so history stays until `clear`.
+* Verified with screendumps over 3× `help`: two PgUps show two distinct older screens, two PgDns restore live byte-identical.
+
 ### Added - 2026-10-11 (website, viewer, licence)
 
 * Vanilla HTML/CSS/JS site: root `index.html` (hero + live-typing boot terminal, features, commands, build), `versions/index.html` (release catalog), `versions/v0.1.0/index.html` (command reference, run guide, limits), `404.html` ("lost sector"), `browse.html` (GitHub-API source viewer — read every file online, no install). Clean directory URLs, scroll-reveal, back-to-top, copy buttons, social footers.

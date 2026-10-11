@@ -14,7 +14,7 @@
 #define GLYPH_W 12u
 #define GLYPH_H 24u
 
-#define CON_LINES 128      /* ring: ~5 full screens of history */
+#define CON_LINES 256      /* ring: everything stays until `clear` */
 #define CON_COLS 256       /* widest line kept (paints truncated to screen) */
 
 _Static_assert(FONT_CELL_W == 12 && FONT_CELL_H == 24,
@@ -190,7 +190,10 @@ static void paint_line(uint32_t idx, uint32_t srow, uint32_t cols) {
 
 static void repaint(void) {
   uint32_t rows = nrows(), cols = ncols();
-  uint32_t end = con_view ? con_ftotal : con_total;
+  /* Frozen view ends `view` lines back; live ends at the newest line.
+   * (maxback guarantees view <= base - rows, so no underflow.) */
+  uint32_t base = con_view ? con_ftotal : con_total;
+  uint32_t end = con_view ? (base - con_view) : base;
   uint32_t first, count;
   paint_bg();
   if (!con_view) {
@@ -219,11 +222,14 @@ static void repaint(void) {
 }
 
 void fb_scroll_back(void) {
-  uint32_t rows, maxback, step;
+  uint32_t rows, maxback, step, base;
   if (!g_ok) return;
   rows = nrows();
   step = (rows > 1) ? (rows - 1) : 1;
-  maxback = (con_total > rows) ? (con_total - rows) : 0;
+  /* While already scrolled, measure from the frozen total so the view
+   * can never run past the oldest frozen line (uint32 underflow). */
+  base = con_view ? con_ftotal : con_total;
+  maxback = (base > rows) ? (base - rows) : 0;
   if (maxback == 0) return;
   if (!con_view) con_ftotal = con_total;
   con_view += step;
