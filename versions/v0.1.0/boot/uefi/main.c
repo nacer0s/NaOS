@@ -13,6 +13,62 @@
 
 static const CHAR16 kKernelPath[] =
   { '\\', 'N', 'a', 'O', 'S', '\\', 'K', 'E', 'R', 'N', 'E', 'L', '.', 'E', 'L', 'F', 0 };
+static const CHAR16 kRamdiskPath[] =
+  { '\\', 'N', 'a', 'O', 'S', '\\', 'R', 'A', 'M', 'D', 'I', 'S', 'K', '.', 'I', 'M', 'G', 0 };
+
+/* Live-boot image: pool-read the file, copy into <=1G LoaderData page runs
+ * (kernel identity map), describe runs in bootinfo. Best effort: absence or
+ * failure just means a normal disk boot (or diskless shell). Never dies. */
+#define RD_RUNS 4
+static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
+                         naos_bootinfo_t *bi) {
+  uint8_t *img = 0;
+  UINTN size = 0, per, left;
+  uint8_t *src;
+  EFI_STATUS st;
+  uint64_t bases[RD_RUNS];
+  uint32_t pages[RD_RUNS];
+  int i, n;
+  st = file_read_all(ImageHandle, bs, kRamdiskPath, &img, &size);
+  if (st != EFI_SUCCESS || !img || size == 0 || size > (64u * 1024u * 1024u) ||
+      (size & 511u)) {
+    co_puts("RAMDISK absent: disk boot\n");
+    return;
+  }
+  per = (size + RD_RUNS - 1) / RD_RUNS;
+  per = (per + 0xFFFULL) & ~0xFFFULL;
+  src = img;
+  left = size;
+  n = 0;
+  for (i = 0; i < RD_RUNS && left > 0; i++) {
+    UINTN want = left < per ? left : per;
+    EFI_PHYSICAL_ADDRESS addr = 0x40000000u; /* below 1G, kernel-mapped */
+    UINTN npages = (want + 0xFFFULL) >> 12;
+    st = bs->AllocatePages(AllocateMaxAddress, EfiLoaderData, npages, &addr);
+    if (st != EFI_SUCCESS) break;
+    naos_memcpy((VOID *)(uintptr_t)addr, src, want);
+    if (want < per)
+      naos_memset((VOID *)(uintptr_t)(addr + want), 0, per - want);
+    bases[n] = (uint64_t)addr;
+    pages[n] = (uint32_t)npages;
+    n++;
+    src += want;
+    left -= want;
+  }
+  bs->FreePool(img);
+  if (left != 0) {
+    co_puts("RAMDISK alloc failed: disk boot\n");
+    return; /* staged runs stay zeroed; leaked pages are LoaderData (safe) */
+  }
+  for (i = 0; i < n; i++) {
+    bi->rd_base[i] = bases[i];
+    bi->rd_pages[i] = pages[i];
+  }
+  co_puts("RAMDISK live image ready\n");
+  serial_puts("ramdisk: ");
+  serial_put_hex64(size);
+  serial_puts(" bytes staged\n");
+}
 
 static void die(const char *msg, uint64_t code) {
   co_puts(msg);
@@ -98,6 +154,10 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
   serial_puts("kernel entry=");
   serial_put_hex64((uint64_t)entry);
   serial_puts("\n");
+
+  /* Live-boot RAM disk (optional file, staged below 1G for the kernel). */
+  co_puts("Loading \\NaOS\\RAMDISK.IMG...\n");
+  load_ramdisk(ImageHandle, bs, &bootinfo);
 
   /* Exit boot services */
   co_puts("ExitBootServices...\n");

@@ -176,7 +176,8 @@ File creation rule: ESP is built with `mformat -i build/NaOS.img -F -v NaOS ::` 
 * **ISO export DONE (2026-10-11):** `tools/mkiso.sh` (El Torito UEFI), `make iso`/`run-iso`, real-hardware install guide; CD-boot verified (boots to shell, runs diskless — ATAPI is v0.2). Published as the `v0.1.0` GitHub Release asset (`NaOS.iso`).
 * **Website + release DONE (2026-10-11):** vanilla HTML/CSS/JS site (root `index.html`, `versions/`, per-version page, `404.html`, GitHub-API file viewer `browse.html`); short SemVer + build-date version system; custom non-commercial source-available licence (`LICENCE.md`).
 * **Full sentences DONE (2026-10-10):** `make folder`, `copy` (files + recursive folders), `move` (rename / copy+delete); unix aliases removed.
-* Post-v0.1.0 (v0.2.0 ideas, not in scope): TCP listen/accept, DNS resolver, 4K-LBA NVMe, MSI-X interrupts, ATAPI CD-ROM + USB mass storage (ISO/USB boot with files), file seek/append syscalls for programs, more NICs (virtio-net), real-hardware boot reports.
+* **Live RAM disk DONE (2026-10-11):** `tools/mkramdisk.sh` builds a 40MB FAT32 image (`\NaOS\RAMDISK.IMG` on the ESP); `BOOTX64.EFI` stages it into <1G page runs, kernel `ramblk` mounts it as last-resort disk. CD/USB boot now has working files (session-only writes); HDD/NVMe boot unchanged (real disk wins via ATA signature probe). QEMU + VirtualBox verified: `run /PROGS/hello.elf` and `make-file` live.
+* Post-v0.1.0 (v0.2.0 ideas, not in scope): TCP listen/accept, DNS resolver, 4K-LBA NVMe, MSI-X interrupts, file seek/append syscalls for programs, more NICs (virtio-net), real-hardware boot reports.
 
 ## 8. Coding Rules (purity + safety)
 

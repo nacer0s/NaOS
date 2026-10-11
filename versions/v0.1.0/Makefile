@@ -35,7 +35,7 @@ KERN_SRCS  := kernel/kmain.c kernel/drv/fb.c kernel/drv/pit.c \
               kernel/drv/ps2_kbd.c kernel/drv/ata.c kernel/drv/rtc.c \
               kernel/drv/acpi.c               kernel/drv/speaker.c kernel/drv/pci.c \
               kernel/drv/ahci.c kernel/drv/blk.c kernel/drv/xhci.c \
-              kernel/drv/nvme.c \
+              kernel/drv/nvme.c kernel/drv/ramblk.c \
               kernel/drv/usb_kbd.c kernel/drv/e1000.c \
               kernel/net/net.c kernel/net/udp.c kernel/net/dhcp.c \
               kernel/net/tcp.c kernel/lib/kprintf.c \
@@ -83,7 +83,7 @@ OVMF := $(shell for f in $(OVMF_CANDS); do if [ -f "$$f" ]; then echo "$$f"; bre
 
 QEMU := qemu-system-x86_64
 
-.PHONY: all bootloader kernel progs esp iso run run-iso check clean
+.PHONY: all bootloader kernel progs ramdisk esp iso run run-iso check clean
 
 all: bootloader kernel progs
 
@@ -145,8 +145,11 @@ $(BUILD)/progs/%.elf: progs/%.c $(BUILD)/progs/crt0.o $(PROG_LD) | $(BUILD)
 $(BUILD):
 	mkdir -p $(BUILD)
 
-esp: all
+esp: all ramdisk
 	./tools/mkesp.sh
+
+ramdisk: progs
+	./tools/mkramdisk.sh
 
 iso: esp
 	./tools/mkiso.sh

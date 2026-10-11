@@ -407,6 +407,20 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 * VirtualBox EFI saw the CD but offered no boot entry: the ISO carried `BOOTX64.EFI` only inside the El Torito boot image. `mkiso.sh` now also ships `\EFI\BOOT\BOOTX64.EFI` as a real ISO file (the UEFI fallback path); our loader finds `\NaOS\KERNEL.ELF` on the same filesystem. Verified present on disc (14,601 bytes) + QEMU regression boot OK.
 
+### Added - 2026-10-11 (live RAM disk: ISO boots with files)
+
+* `tools/mkramdisk.sh` (40MB FAT32, PROGS + docs; `VERSION`-style FAT32 floor: 80,628 clusters verified via BPB) + `mkesp.sh` ships it as `\NaOS\RAMDISK.IMG`; `make esp` builds it via new `ramdisk` target.
+* Bootloader (`boot/uefi/main.c`): pool-reads the image, copies into ≤4 page runs below 1G (`AllocateMaxAddress`), describes them in new `bootinfo.rd_base/rd_pages`; absent/broken file = silent disk boot (never fatal).
+* Kernel (`kernel/drv/ramblk.h/.c`): memcpy backend over the runs (<1G guard, bounds-checked, multi-run walk). `blk` order is now AHCI → NVMe → probed ATA (new `ata_probe`: LBA0 must carry `0x55AA`) → RAM disk → legacy ATA. `pci` reports `ramdisk`.
+* Fixed along the way: duplicate `mmd ::/NaOS` hung `make esp` on mtools' interactive autorename prompt — now existence-checked.
+* Semantics (documented): real disks always win (HDD/NVMe persistence unchanged); RAM disk is last resort, writes live in RAM for the session. Give VMs ≥256MB.
+
+### Verified - 2026-10-11 (live ISO)
+
+* QEMU HDD boot: `RAMDISK live image ready` staged, `blk: using ahci`, FAT mounts — zero regression.
+* QEMU CD boot: `blk: using ramdisk (live)`, `fat32: tot=81920`, `list` shows `PROGS/` + docs; `run /PROGS/hello.elf` → `hello from disk!`; `make-file /LIVE.TXT` persists for the session.
+* VirtualBox (headless, EFI): same `ramdisk (live)` mount + FAT + shell; test VM deleted after.
+
 ### Added - 2026-10-11 (website, viewer, licence)
 
 * Vanilla HTML/CSS/JS site: root `index.html` (hero + live-typing boot terminal, features, commands, build), `versions/index.html` (release catalog), `versions/v0.1.0/index.html` (command reference, run guide, limits), `404.html` ("lost sector"), `browse.html` (GitHub-API source viewer — read every file online, no install). Clean directory URLs, scroll-reveal, back-to-top, copy buttons, social footers.

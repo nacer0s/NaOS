@@ -91,6 +91,15 @@ int ata_init(void) {
 
 uint64_t ata_sectors(void) { return g_sectors; }
 
+/* Probe: init + read LBA0, require the 0x55AA boot signature.
+ * 1 = usable disk present (leaves ATA initialized). */
+int ata_probe(void) {
+  static uint8_t sec[512];
+  if (ata_init() != 0) return 0;
+  if (ata_read(0, 1, sec) != 0) return 0;
+  return (sec[510] == 0x55 && sec[511] == 0xAA) ? 1 : 0;
+}
+
 int ata_read(uint32_t lba, uint8_t count, void *buf) {
   if (count == 0 || !buf) return -1;
   if (wait_clear(ST_BSY, 1000000) != 0) return -1;

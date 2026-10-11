@@ -9,6 +9,7 @@
 #include "drv/pit.h"
 #include "drv/ps2_kbd.h"
 #include "drv/blk.h"
+#include "drv/ramblk.h"
 #include "drv/usb_kbd.h"
 #include "net/net.h"
 #include "net/dhcp.h"
@@ -69,7 +70,8 @@ void kmain(naos_bootinfo_t *bi) {
   kmalloc_init();
   vmm_init(g_bi.fb_base, g_bi.fb_size);
   sched_init((uint64_t)(uintptr_t)stack_top);
-  blk_init(); /* AHCI first, ATA PIO fallback (needs PMM+VMM) */
+  ramblk_init(g_bi.rd_base, g_bi.rd_pages); /* live image, maybe absent */
+  blk_init(); /* AHCI, NVMe, probed ATA, then RAM-disk (needs PMM+VMM) */
   fat_init();
   usb_kbd_init(); /* XHCI HID keyboard if present (optional) */
   net_init();     /* E1000 + ARP/ICMP if present (optional) */

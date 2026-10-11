@@ -24,6 +24,10 @@ typedef struct {
   uint32_t mmap_version;
   uint32_t _reserved2;
   uint64_t rsdp;           /* ACPI RSDP address, 0 if unknown (P5+) */
+  /* RAM disk (live boot): up to 4 page runs below 1G (EfiLoaderData).
+   * All zero = absent. Kernel mounts it only if no real disk works. */
+  uint64_t rd_base[4];
+  uint32_t rd_pages[4];
 } naos_bootinfo_t;
 
 #endif /* NAOS_BOOTINFO_H */

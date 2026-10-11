@@ -76,7 +76,7 @@ make iso      # build/NaOS.iso — El Torito UEFI boot image (needs xorriso)
 make run-iso  # boot the ISO itself in QEMU (-cdrom) to verify it
 ```
 
-Note: a CD-booted system runs **diskless** — ATAPI CD-ROM and USB mass storage are v0.2.0 work, so `list` reports `fat: not ready`. The shell itself boots fine and every non-disk command works. Full files need a SATA/NVMe/IDE disk (AHCI → NVMe → ATA).
+Note: a CD/USB-booted system runs a **live RAM session** — `BOOTX64.EFI` stages a 40MB FAT image into memory and the kernel mounts it, so `list`/`read`/`run`/`edit` all work with files. Writes live in RAM and vanish on reboot (give the VM ≥256MB). Full persistence needs a SATA/NVMe/IDE disk (AHCI → NVMe → probed ATA → RAM disk, in that order).
 
 VirtualBox: the VM must use EFI (Settings → System → Motherboard → **Enable EFI**) — BIOS mode reports "no bootable medium" for this UEFI-only image. QEMU needs OVMF (`-drive if=pflash,...,file=edk2-x86_64-code.fd`), same as `make run-iso`.
 
