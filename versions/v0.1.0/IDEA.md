@@ -78,13 +78,13 @@ NaOS/
   docs/
     boot-flow.md     # (phase 2) GOP + memory-map notes
     memory-map.md    # (phase 2) physical layout
-  build/             # generated: BOOTX64.EFI, KERNEL.ELF, NaOS.img (gitignored)
+  build/             # generated: BOOTX64.EFI, KERNEL.ELF, NaOS.v0.1.0.img (gitignored)
 ```
 
 ## 4. Boot & Data Flow
 
 ```
-QEMU -drive if=pflash,file=edk2-x86_64-code.fd -drive file=build/NaOS.img
+QEMU -drive if=pflash,file=edk2-x86_64-code.fd -drive file=build/NaOS.v0.1.0.img
  │
  ▼  UEFI firmware mounts ESP (FAT), executes \EFI\BOOT\BOOTX64.EFI
 BOOTX64.EFI (our C, PE+):
@@ -138,14 +138,14 @@ echo 'export PATH=/opt/cross/bin:$PATH' >> ~/.bashrc
 export PATH=/opt/cross/bin:$PATH
 ./tools/check.sh            # fail fast if tool missing
 make all                    # build/BOOTX64.EFI + build/KERNEL.ELF (when kernel lands)
-make esp                    # build/NaOS.img (64M FAT, \EFI\BOOT\BOOTX64.EFI + \NaOS\KERNEL.ELF)
-make run                    # qemu-system-x86_64 -bios edk2... -drive file=build/NaOS.img -serial stdio
+make esp                    # build/NaOS.v0.1.0.img (64M FAT, \EFI\BOOT\BOOTX64.EFI + \NaOS\KERNEL.ELF)
+make run                    # qemu-system-x86_64 -bios edk2... -drive file=build/NaOS.v0.1.0.img -serial stdio
 make clean
 ```
 
-`make run` QEMU flags (v0.1): `-drive if=pflash,format=raw,unit=0,file=<ovmf>,readonly=on -drive format=raw,file=build/NaOS.img -m 256M -serial stdio -display gtk` (pflash, not `-bios`, verified on winget QEMU 11.1.0 Windows build). OVMF path auto-detected: `C:/Program Files/qemu/share/edk2-x86_64-code.fd` → `/mingw64/share/qemu/...` → `qemu` relative.
+`make run` QEMU flags (v0.1): `-drive if=pflash,format=raw,unit=0,file=<ovmf>,readonly=on -drive format=raw,file=build/NaOS.v0.1.0.img -m 256M -serial stdio -display gtk` (pflash, not `-bios`, verified on winget QEMU 11.1.0 Windows build). OVMF path auto-detected: `C:/Program Files/qemu/share/edk2-x86_64-code.fd` → `/mingw64/share/qemu/...` → `qemu` relative.
 
-File creation rule: ESP is built with `mformat -i build/NaOS.img -F -v NaOS ::` + `mcopy`, never by hand-copying a prebuilt image. Scripts are ours.
+File creation rule: ESP is built with `mformat -i build/NaOS.v0.1.0.img -F -v NaOS ::` + `mcopy`, never by hand-copying a prebuilt image. Scripts are ours.
 
 ## 7. Phases (P0 done, P1 next)
 
@@ -173,7 +173,7 @@ File creation rule: ESP is built with `mformat -i build/NaOS.img -F -v NaOS ::` 
 * **TCP DONE (2026-10-11):** UDP sockets + DHCP client (boot lease w/ static fallback) + minimal TCP client (SYN/ACK/retransmit/graceful close) + `fetch` HTTP demo; QEMU user-net verified against host HTTP server.
 * **NVMe DONE (2026-10-11):** polled driver (admin + 1 I/O queue, 512B NSID 1) in `blk` (AHCI→NVMe→ATA); NVMe-only boot verified (FAT on NVMe) + nondestructive selftest.
 * **Full sentences DONE (2026-10-10):** `make-folder`, `make-file`, multi-source `copy`/`move` (relinking rename), `rename`, `go`; no Unix commands remain.
-* **ISO export DONE (2026-10-11):** `tools/mkiso.sh` (El Torito UEFI), `make iso`/`run-iso`, real-hardware install guide; CD-boot verified (boots to shell, runs diskless — ATAPI is v0.2). Published as the `v0.1.0` GitHub Release asset (`NaOS.iso`).
+* **ISO export DONE (2026-10-11):** `tools/mkiso.sh` (El Torito UEFI), `make iso`/`run-iso`, real-hardware install guide; CD-boot verified (boots to shell, runs diskless — ATAPI is v0.2). Published as the `v0.1.0` GitHub Release asset (`NaOS.v0.1.0.iso`).
 * **Website + release DONE (2026-10-11):** vanilla HTML/CSS/JS site (root `index.html`, `versions/`, per-version page, `404.html`, GitHub-API file viewer `browse.html`); short SemVer + build-date version system; custom non-commercial source-available licence (`LICENCE.md`).
 * **Full sentences DONE (2026-10-10):** `make folder`, `copy` (files + recursive folders), `move` (rename / copy+delete); unix aliases removed.
 * **Live RAM disk DONE (2026-10-11):** `tools/mkramdisk.sh` builds a 40MB FAT32 image (`\NaOS\RAMDISK.IMG` on the ESP); `BOOTX64.EFI` stages it into <1G page runs, kernel `ramblk` mounts it as last-resort disk. CD/USB boot now has working files (session-only writes); HDD/NVMe boot unchanged (real disk wins via ATA signature probe). QEMU + VirtualBox verified: `run /PROGS/hello.elf` and `make-file` live.

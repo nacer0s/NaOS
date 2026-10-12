@@ -7,7 +7,10 @@ export PATH := /opt/cross/bin:/c/msys64/opt/cross/bin:$(PATH)
 CROSS_BINDIR := $(shell if [ -x "/opt/cross/bin/x86_64-elf-gcc" ]; then echo "/opt/cross/bin/"; elif [ -x "C:/msys64/opt/cross/bin/x86_64-elf-gcc.exe" ]; then echo "C:/msys64/opt/cross/bin/"; fi)
 
 BUILD      := build
-ESP_IMG    := $(BUILD)/NaOS.img
+# Version: single source of truth (must stay above all its uses).
+VERSION    := 0.1.0
+ESP_IMG    := $(BUILD)/NaOS.v$(VERSION).img
+ISO_IMG    := $(BUILD)/NaOS.v$(VERSION).iso
 EFI_BIN    := $(BUILD)/BOOTX64.EFI
 KERN_ELF   := $(BUILD)/KERNEL.ELF
 
@@ -57,8 +60,7 @@ KERN_LD    := kernel/link.ld
 
 VPATH := boot/uefi common kernel kernel/drv kernel/lib kernel/cpu kernel/mm kernel/fs kernel/user kernel/net
 
-# Version: single source of truth. Short SemVer line; build date separate.
-VERSION    := 0.1.0
+# Generated version header (VERSION is defined at the top).
 VERSION_H  := $(BUILD)/version.h
 
 $(VERSION_H): | $(BUILD)
@@ -152,7 +154,7 @@ $(BUILD):
 	mkdir -p $(BUILD)
 
 esp: all ramdisk nafsdata
-	./tools/mkesp.sh
+	./tools/mkesp.sh $(ESP_IMG)
 
 ramdisk: progs
 	./tools/mkramdisk.sh
@@ -166,7 +168,7 @@ nafsdata: progs
 	"$(PY)" tools/mknafs.py --out $(BUILD)/data.nafs --label NaFSdemo $(BUILD)/nafs-stage
 
 iso: esp
-	./tools/mkiso.sh
+	./tools/mkiso.sh $(ESP_IMG) $(ISO_IMG)
 
 run: esp
 	@if [ -z "$(OVMF)" ]; then echo "ERROR: OVMF edk2-x86_64-code.fd not found"; exit 1; fi
@@ -174,7 +176,7 @@ run: esp
 
 run-iso: iso
 	@if [ -z "$(OVMF)" ]; then echo "ERROR: OVMF edk2-x86_64-code.fd not found"; exit 1; fi
-	"$(QEMU)" -machine q35 -drive if=pflash,format=raw,unit=0,file="$(OVMF)",readonly=on -cdrom $(BUILD)/NaOS.iso -m 256M -serial stdio
+	"$(QEMU)" -machine q35 -drive if=pflash,format=raw,unit=0,file="$(OVMF)",readonly=on -cdrom $(ISO_IMG) -m 256M -serial stdio
 
 check:
 	./tools/check.sh

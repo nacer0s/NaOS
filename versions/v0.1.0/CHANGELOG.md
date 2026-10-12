@@ -482,6 +482,12 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Site restructured to `home/`, `browse/`, `activity/` folders (auto `index.html` each); root `index.html` is a redirect (meta + JS + manual link). `404.html` stays at root (Pages requirement).
 * All five footers unified: tagline + © year nacer0s, socials, section links.
 
+### Changed - 2026-10-12 (home/ IA + dotted artifact names)
+
+* `browse/` + `activity/` moved under `home/` (`/home/browse/`, `/home/activity/`); all cross-links re-resolved and machine-checked.
+* Build outputs renamed from `VERSION`: `NaOS.v0.1.0.img` / `.iso` (fixes an immediate-vs-deferred make trap: `VERSION` now defined above first use). `mkesp.sh`/`mkiso.sh` take paths as args.
+* Release files renamed to match (`NaOS.v0.1.0.*`); every button/label/doc updated.
+
 * NaOS File System v1 spec (in `kernel/fs/nafs.h` + `tools/mknafs.py`, kept in sync): 512B LE blocks, superblock (magic/version/root/checksum), 16×32B dir entries (case-sensitive names), contiguous files, nesting depth 8.
 * `tools/mknafs.py` builds images from a staging dir; `make nafsdata` + `mkesp.sh` ship `/DATA.NAFS` on the ESP.
 * Read-only kernel driver + `nafs mount/list/read` commands (image lives as a FAT file; all offsets bounds-checked, corrupt images error cleanly). Writes are v0.2.0.

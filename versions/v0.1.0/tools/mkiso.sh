@@ -3,8 +3,8 @@
 # Needs: xorriso (pacman -S xorriso). No MBR/CSM: UEFI-only, by design.
 set -e
 BUILD=build
-IMG=$BUILD/NaOS.img
-ISO=$BUILD/NaOS.iso
+IMG=${1:-$BUILD/NaOS.img}
+ISO=${2:-$BUILD/NaOS.iso}
 ROOT=$BUILD/iso
 if [ ! -f "$IMG" ]; then echo "ERROR: $IMG missing — run 'make esp' first"; exit 1; fi
 if ! command -v xorriso >/dev/null 2>&1; then

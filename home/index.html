@@ -147,8 +147,8 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
       <a href="#commands">Commands</a>
       <a href="#versions">Versions</a>
       <a href="#build">Build</a>
-      <a href="../browse/">Code</a>
-      <a href="../activity/">Activity</a>
+      <a href="browse/">Code</a>
+      <a href="activity/">Activity</a>
     </div>
     <button class="burger" id="burger" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
   </div>
@@ -162,7 +162,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
       <p class="lead">NaOS is a <strong>usable operating system</strong> written from scratch: its own UEFI bootloader, its own kernel, FAT32 storage, multitasking, USB keyboard and a TCP/IP stack. <strong>No GRUB. No libc. No prebuilt OS code.</strong></p>
       <div class="btns">
         <a class="btn btn-solid" href="../versions/v0.1.0/"><i class="fa-solid fa-rocket"></i>EXPLORE v0.1.0</a>
-        <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.iso"><i class="fa-solid fa-compact-disc"></i>DOWNLOAD ISO</a>
+        <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.iso"><i class="fa-solid fa-compact-disc"></i>DOWNLOAD ISO</a>
       </div>
     </div>
     <div class="term" aria-label="NaOS boot log">
@@ -306,8 +306,8 @@ NaOS&gt; </span><span class="cursor"></span></div>
         <p>Shell · FAT32 + live RAM disk · multitasking + fork · USB keyboard · UDP/DHCP/DNS/TCP + updater · AHCI/NVMe/ATA · NaOS-FS reader.</p>
         <div class="btns">
           <a class="btn btn-solid" href="../versions/v0.1.0/"><i class="fa-solid fa-arrow-right"></i>RELEASE FILE</a>
-          <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.iso"><i class="fa-solid fa-download"></i>NaOS v0.1.0.iso</a>
-          <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.img"><i class="fa-solid fa-hard-drive"></i>NaOS v0.1.0.img</a>
+          <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.iso"><i class="fa-solid fa-download"></i>NaOS.v0.1.0.iso</a>
+          <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.img"><i class="fa-solid fa-hard-drive"></i>NaOS.v0.1.0.img</a>
         </div>
       </div>
     </div>
@@ -325,7 +325,7 @@ export PATH=/opt/cross/bin:$PATH
 make all           <span class="c"># BOOTX64.EFI + KERNEL.ELF</span>
 make esp           <span class="c"># 64M FAT ESP image</span>
 make run           <span class="g"># QEMU + OVMF → NaOS&gt; shell</span></pre>
-    <p class="note"><i class="fa-solid fa-compact-disc"></i>&nbsp; No build? Grab <a href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.iso">NaOS v0.1.0.iso</a> from the release, boot it with Rufus (DD mode, Secure Boot off) — or <a href="../browse/">browse the code online</a>.</p>
+    <p class="note"><i class="fa-solid fa-compact-disc"></i>&nbsp; No build? Grab <a href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.iso">NaOS.v0.1.0.iso</a> from the release, boot it with Rufus (DD mode, Secure Boot off) — or <a href="browse/">browse the code online</a>.</p>
   </div>
 </section>
 

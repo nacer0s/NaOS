@@ -3,7 +3,7 @@
 # Layout: \EFI\BOOT\BOOTX64.EFI (+ \NaOS\KERNEL.ELF from P2 on).
 set -e
 BUILD=build
-IMG=$BUILD/NaOS.img
+IMG=${1:-$BUILD/NaOS.img}
 EFI=$BUILD/BOOTX64.EFI
 mkdir -p $BUILD
 if [ ! -f "$EFI" ]; then echo "ERROR: $EFI missing — run 'make bootloader' first"; exit 1; fi

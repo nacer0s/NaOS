@@ -15,8 +15,8 @@ then `net`, `dhcp`, `ping 10.0.2.2`, and `fetch 10.0.2.2 8099 /path` (needs an H
 
 ## Download & website
 
-* **Bootable ISO:** [NaOS v0.1.0.iso](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.iso) (68MB, UEFI) — or build it here with `make iso`. CD/USB boot runs a **live RAM session** (files work, writes vanish on reboot); persistence needs a SATA/NVMe/IDE disk.
-* **Raw disk image:** [NaOS v0.1.0.img](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.img) (64MB FAT) — attach as a VM hard disk for a boot **with files**, or `dd` to USB.
+* **Bootable ISO:** [NaOS.v0.1.0.iso](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.iso) (68MB, UEFI) — or build it here with `make iso`. CD/USB boot runs a **live RAM session** (files work, writes vanish on reboot); persistence needs a SATA/NVMe/IDE disk.
+* **Raw disk image:** [NaOS.v0.1.0.img](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.img) (64MB FAT) — attach as a VM hard disk for a boot **with files**, or `dd` to USB.
 * **Websites:** [release page](https://naos.nacer0s.com/versions/v0.1.0/) · [project home](https://naos.nacer0s.com/) · [code viewer](https://naos.nacer0s.com/browse.html) (read every file online, no install).
 
 ## Requirements
@@ -58,7 +58,7 @@ x86_64-elf-gcc --version
 export PATH=/opt/cross/bin:$PATH
 ./tools/check.sh     # verify every tool + OVMF firmware
 make all             # build/BOOTX64.EFI + build/KERNEL.ELF
-make esp             # build/NaOS.img — 64M FAT with \EFI\BOOT\BOOTX64.EFI + \NaOS\KERNEL.ELF
+make esp             # build/NaOS.v0.1.0.img — 64M FAT with \EFI\BOOT\BOOTX64.EFI + \NaOS\KERNEL.ELF
 make run             # QEMU + OVMF, boots to kernel banner
 make clean           # full rebuild (also needed automatically via header deps)
 ```
@@ -66,7 +66,7 @@ make clean           # full rebuild (also needed automatically via header deps)
 QEMU command used by `make run`:
 
 ```
-qemu-system-x86_64 -machine q35 -drive if=pflash,format=raw,unit=0,file="<...>/edk2-x86_64-code.fd",readonly=on -drive format=raw,file=build/NaOS.img -m 256M -serial stdio
+qemu-system-x86_64 -machine q35 -drive if=pflash,format=raw,unit=0,file="<...>/edk2-x86_64-code.fd",readonly=on -drive format=raw,file=build/NaOS.v0.1.0.img -m 256M -serial stdio
 ```
 
 `-machine q35` is required: stock QEMU boots the `pc` machine, whose OVMF drops to the EFI shell instead of auto-booting us.
@@ -81,7 +81,7 @@ BOOTX64.EFI
 ## ISO + real hardware
 
 ```bash
-make iso      # build/NaOS.iso — El Torito UEFI boot image (needs xorriso)
+make iso      # build/NaOS.v0.1.0.iso — El Torito UEFI boot image (needs xorriso)
 make run-iso  # boot the ISO itself in QEMU (-cdrom) to verify it
 ```
 
@@ -89,7 +89,7 @@ Note: a CD/USB-booted system runs a **live RAM session** — `BOOTX64.EFI` stage
 
 VirtualBox: create the VM as type **Other/Unknown (64-bit)** (a 32-bit type disables Long Mode and no 64-bit OS can boot), enable EFI (Settings → System → Motherboard → **Enable EFI**), attach the ISO as optical drive — BIOS mode reports "no bootable medium" for this UEFI-only image. QEMU needs OVMF (`-drive if=pflash,...,file=edk2-x86_64-code.fd`), same as `make run-iso`.
 
-Flash to USB (Windows: [Rufus](https://rufus.ie) in **DD mode**; Linux: `dd if=build/NaOS.iso of=/dev/sdX bs=4M status=progress`), then boot the stick as a **UEFI** device.
+Flash to USB (Windows: [Rufus](https://rufus.ie) in **DD mode**; Linux: `dd if=build/NaOS.v0.1.0.iso of=/dev/sdX bs=4M status=progress`), then boot the stick as a **UEFI** device.
 
 You must know before trying:
 

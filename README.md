@@ -6,8 +6,8 @@ A usable x86_64 UEFI operating system built **from scratch (0), in C** — no GR
 
 ## Download — try it without building
 
-* **Bootable ISO:** [NaOS v0.1.0.iso](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.iso) (68MB, UEFI, from the [v0.1.0 release](https://github.com/nacer0s/NaOS/releases)) — flash with Rufus in **DD mode**, boot as a UEFI device with **Secure Boot off**. CD/USB boot runs a **live RAM session** (files work, writes vanish on reboot); persistence needs a SATA/NVMe disk.
-* **Raw disk image:** [NaOS v0.1.0.img](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.img) (64MB FAT) — attach as a VM hard disk (IDE/SATA: boots **with files**) or `dd` to USB.
+* **Bootable ISO:** [NaOS.v0.1.0.iso](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.iso) (68MB, UEFI, from the [v0.1.0 release](https://github.com/nacer0s/NaOS/releases)) — flash with Rufus in **DD mode**, boot as a UEFI device with **Secure Boot off**. CD/USB boot runs a **live RAM session** (files work, writes vanish on reboot); persistence needs a SATA/NVMe disk.
+* **Raw disk image:** [NaOS.v0.1.0.img](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.img) (64MB FAT) — attach as a VM hard disk (IDE/SATA: boots **with files**) or `dd` to USB.
 * **Read the code online:** [file viewer](https://naos.nacer0s.com/browse.html) — browse every source file in your browser, no clone needed.
 * **Project website:** <https://naos.nacer0s.com> (this repo's `index.html`, served by GitHub Pages).
 
@@ -41,9 +41,9 @@ cd versions/v0.1.0
 export PATH=/opt/cross/bin:$PATH
 ./tools/check.sh     # verify every tool + OVMF firmware
 make all             # build/BOOTX64.EFI + build/KERNEL.ELF
-make esp             # build/NaOS.img — 64M FAT ESP image
+make esp             # build/NaOS.v0.1.0.img — 64M FAT ESP image
 make run             # QEMU + OVMF, boots to the NaOS> shell
-make iso             # build/NaOS.iso (needs xorriso)
+make iso             # build/NaOS.v0.1.0.iso (needs xorriso)
 make run-iso         # boot the ISO itself in QEMU to verify it
 ```
 
@@ -57,8 +57,8 @@ LICENCE.md           custom licence for the whole project (source-available, non
 SECURITY.md          security policy: supported versions + how to report
 index.html           root redirect → home/ (meta + JS + manual link)
 home/index.html      project website (dossier design, offline-safe)
-browse/index.html    in-browser source viewer (GitHub API, no install)
-activity/index.html  live repo track: commits, releases, download counts
+home/browse/index.html in-browser source viewer (GitHub API, no install)
+home/activity/index.html live repo track: commits, releases, download counts
 404.html             website "lost sector" page (must stay at root for Pages)
 versions/
   v0.1.0/            frozen v0.1.0 snapshot: Makefile, boot/, kernel/,
