@@ -41,6 +41,7 @@ One-time host setup (Windows + MSYS2 UCRT64, QEMU via `winget`, rest via `pacman
 ```
 README.md            this file — project hub (global, not per-version)
 LICENCE.md           custom licence for the whole project (source-available, non-commercial)
+SECURITY.md          security policy: supported versions + how to report
 index.html           project website (vanilla HTML/CSS/JS, offline-safe)
 browse.html          in-browser source viewer (GitHub API, no install)
 404.html             website "lost sector" page
