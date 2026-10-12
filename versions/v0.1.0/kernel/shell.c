@@ -274,7 +274,8 @@ static void dispatch(char *line) {
     kprintf("  fetch <ip> <port> </path>\n");
     kprintf("                     HTTP/1.0 GET over TCP, print body\n");
     kprintf("  settings           show prompt and colors (/SETTINGS.TXT)\n");
-    kprintf("  font [normal|big]  console font size (saves to /SETTINGS.TXT)\n");
+    kprintf("  font [small|normal|big|3|4]\n");
+    kprintf("                     console size, saved\n");
     kprintf("  PgUp/PgDn scroll the screen back and forth\n");
     kprintf("  reboot             restart the computer\n");
     kprintf("  shutdown           stop the computer\n");
@@ -288,16 +289,26 @@ static void dispatch(char *line) {
     settings_show();
   } else if ((a = after(line, "font"))) {
     if (*a == '\0') {
-      kprintf("font is %s\n", settings_font() == 2 ? "big" : "normal");
-    } else if (naos_strcmp(a, "normal") == 0 || naos_strcmp(a, "big") == 0) {
-      settings_set_font((naos_strcmp(a, "big") == 0) ? 2 : 1);
-      if (settings_save() == 0)
-        kprintf("font is %s (saved)\n", a);
-      else
-        kprintf("font is %s (save failed)\n",
-                settings_font() == 2 ? "big" : "normal");
+      int f = settings_font();
+      kprintf("font is %s\n", f == 0 ? "small" : f == 1 ? "normal" : f == 2 ? "big" : f == 3 ? "3" : "4");
     } else {
-      kprintf("usage: font [normal|big]\n");
+      int f = -1;
+      if (naos_strcmp(a, "small") == 0) f = 0;
+      else if (naos_strcmp(a, "normal") == 0 || naos_strcmp(a, "1") == 0)
+        f = 1;
+      else if (naos_strcmp(a, "big") == 0 || naos_strcmp(a, "2") == 0)
+        f = 2;
+      else if (naos_strcmp(a, "3") == 0) f = 3;
+      else if (naos_strcmp(a, "4") == 0) f = 4;
+      if (f < 0) {
+        kprintf("usage: font [small|normal|big|3|4]\n");
+      } else {
+        settings_set_font(f);
+        if (settings_save() == 0)
+          kprintf("font is %s (saved)\n", a);
+        else
+          kprintf("font changed (save failed)\n");
+      }
     }
   } else if ((a = after(line, "print"))) {
     kprintf("%s\n", a);

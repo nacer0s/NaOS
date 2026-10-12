@@ -432,6 +432,12 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * QEMU screendumps: post-`help` PgUp changes pixels, PgDn restores the live frame **byte-identical**, `font big` relaids out, `settings` shows `font=big (/SETTINGS.TXT)`.
 * Reboot: `font=big` reloaded from file automatically; `font normal` restores defaults. Zero faults, zero warnings.
 
+### Added - 2026-10-11 (font sizes + fast console)
+
+* Sizes: `small` (authentic 8x16 DejaVu render, new `--tag` mode in `tools/font_render.py`, byte-identical default output proven), `normal`, `big`, custom `3`/`4` (Nx pixel scale). `font [small|normal|big|1|2|3|4]`, persisted as words in `/SETTINGS.TXT`.
+* Lag fix: per-glyph 4-entry blend tables (12 divisions per glyph instead of ~900) + 32-bit screen fills + 32-bit pixel stores — repaint cost down several-fold on every size.
+* Verified: `small`/`3` render + save + reload from file; all three layouts pixel-distinct; zero faults, zero warnings. (`big`/`normal` restore share the identical verified paths; interactive re-confirm pending.)
+
 ### Fixed - 2026-10-11 (scrollback viewport)
 
 * The frozen viewport ignored the scroll distance (PgUp barely moved) and the back-cap measured from live totals (uint32 underflow past the oldest frozen line). Viewport now ends `view` lines back, capped against the frozen total; ring enlarged 128 → 256 lines so history stays until `clear`.

@@ -101,14 +101,19 @@ $(EFI_BIN): $(BOOT_OBJS)
 PY := $(shell if [ -x "/ucrt64/bin/python" ]; then echo "/ucrt64/bin/python"; elif [ -x "C:/msys64/ucrt64/bin/python.exe" ]; then echo "C:/msys64/ucrt64/bin/python.exe"; else echo "python3"; fi)
 FONT_TTF := $(shell for f in /ucrt64/share/fonts/TTF/DejaVuSansMono.ttf "C:/msys64/ucrt64/share/fonts/TTF/DejaVuSansMono.ttf"; do if [ -f "$$f" ]; then echo "$$f"; break; fi; done)
 FONT_HDR := $(BUILD)/font_bitmap.h
+FONT_HDR_SM := $(BUILD)/font_bitmap_small.h
 
 $(FONT_HDR): tools/font_render.py | $(BUILD)
 	@if [ -z "$(FONT_TTF)" ]; then echo "ERROR: DejaVuSansMono.ttf not found (pacman -S mingw-w64-ucrt-x86_64-ttf-dejavu)"; exit 1; fi
 	"$(PY)" tools/font_render.py --ttf "$(FONT_TTF)" --size 19 --cell-w 12 --cell-h 24 --out $(FONT_HDR)
 
+$(FONT_HDR_SM): tools/font_render.py | $(BUILD)
+	@if [ -z "$(FONT_TTF)" ]; then echo "ERROR: DejaVuSansMono.ttf not found (pacman -S mingw-w64-ucrt-x86_64-ttf-dejavu)"; exit 1; fi
+	"$(PY)" tools/font_render.py --ttf "$(FONT_TTF)" --size 12 --cell-w 8 --cell-h 16 --tag small --out $(FONT_HDR_SM)
+
 kernel: $(KERN_ELF)
 
-$(BUILD)/kern/fb.o: $(FONT_HDR)
+$(BUILD)/kern/fb.o: $(FONT_HDR) $(FONT_HDR_SM)
 
 $(BUILD)/kern/%.o: %.c | $(BUILD)
 	@mkdir -p $(dir $@)

@@ -6,9 +6,11 @@
  * Text model: every printed char is recorded in a ring of lines (with the
  * colors in force), so PgUp/PgDn can scroll back after the pixels scrolled
  * away. Live output draws incrementally (fast path); scroll keys, font
- * switches and clears repaint from the ring. Font scale 2 doubles pixels. */
+ * switches and clears repaint from the ring. Small/normal/big/custom fonts
+ * share one blitter over two bitmap tables (12x24 + 8x16). */
 #include "fb.h"
-#include "font_bitmap.h"   /* generated: build/font_bitmap.h via -Ibuild */
+#include "font_bitmap.h"         /* generated: build/font_bitmap.h */
+#include "font_bitmap_small.h"   /* generated: build/font_bitmap_small.h */
 #include "../../common/cstring.h"
 
 #define GLYPH_W 12u
@@ -19,16 +21,22 @@
 
 _Static_assert(FONT_CELL_W == 12 && FONT_CELL_H == 24,
                "font_bitmap.h cell must be 12x24");
+_Static_assert(FONT_SMALL_W == 8 && FONT_SMALL_H == 16,
+               "small bitmap cell must be 8x16");
 
 static uint8_t *g_base;
-static uint8_t g_cache[128][24][3]; /* 2-bit alpha per px: 12px = 3B/row */
+static uint8_t g_cache[128][24][3];    /* normal 12x24: 3B/row */
+static uint8_t g_cache_sm[128][16][2]; /* small 8x16: 2B/row */
 static int g_font_ready;
 static uint32_t g_w, g_h, g_pitch;
 static uint32_t g_fg = 0xFFFFFF, g_bg = 0x000000;
 static uint32_t g_cx, g_cy;
 static int g_fmt;   /* 0 RGBX, 1 BGRX */
 static int g_ok;
-static int g_scale = 1; /* 1 normal, 2 big */
+/* Active font: id 0=small, 1=normal, 2=big(2x), 3=3x, 4=4x. */
+static int g_id = 1;
+static const uint8_t *g_bits; /* flat table: ch*bh*bpr */
+static uint32_t g_bw, g_bh, g_bpr, g_px;
 
 /* Text ring. */
 static char con_text[CON_LINES][CON_COLS];
@@ -41,10 +49,29 @@ static uint32_t con_view;   /* lines back from live (0 = live) */
 static uint32_t con_ftotal; /* frozen total while scrolled */
 static int cursor_on;       /* vertical bar currently drawn */
 
-/* The bitmap header layout matches g_cache exactly; just copy it in. */
+/* The bitmap header layouts match the caches exactly; copy them in. */
 static void font_load(void) {
   _Static_assert(sizeof(g_cache) == sizeof(kFontBits), "font cache mismatch");
+  _Static_assert(sizeof(g_cache_sm) == sizeof(kFontSmallBits),
+                 "small font cache mismatch");
   naos_memcpy(g_cache, kFontBits, sizeof(g_cache));
+  naos_memcpy(g_cache_sm, kFontSmallBits, sizeof(g_cache_sm));
+}
+
+static void select_table(void) {
+  if (g_id == 0) {
+    g_bits = &g_cache_sm[0][0][0];
+    g_bw = FONT_SMALL_W;
+    g_bh = FONT_SMALL_H;
+    g_bpr = (FONT_SMALL_W + 3) / 4;
+    g_px = 1;
+  } else {
+    g_bits = &g_cache[0][0][0];
+    g_bw = FONT_CELL_W;
+    g_bh = FONT_CELL_H;
+    g_bpr = (FONT_CELL_W + 3) / 4;
+    g_px = (uint32_t)g_id; /* 1..4 */
+  }
 }
 
 void fb_init(uint64_t base, uint32_t width, uint32_t height, uint32_t pitch,
@@ -59,15 +86,16 @@ void fb_init(uint64_t base, uint32_t width, uint32_t height, uint32_t pitch,
     font_load();
     g_font_ready = 1;
   }
+  select_table();
   g_ok = 1;
 }
 
 int fb_ready(void) { return g_ok; }
-int fb_font(void) { return g_scale; }
+int fb_font(void) { return g_id; }
 int fb_is_live(void) { return !con_view; }
 
-static uint32_t cell_w(void) { return GLYPH_W * (uint32_t)g_scale; }
-static uint32_t cell_h(void) { return GLYPH_H * (uint32_t)g_scale; }
+static uint32_t cell_w(void) { return g_bw * g_px; }
+static uint32_t cell_h(void) { return g_bh * g_px; }
 
 static uint32_t ncols(void) {
   uint32_t c = g_w / cell_w();
@@ -90,9 +118,20 @@ static void put_pixel(uint32_t x, uint32_t y, uint32_t rgb) {
 }
 
 static void paint_bg(void) {
-  for (uint32_t y = 0; y < g_h; y++)
-    for (uint32_t x = 0; x < g_w; x++)
-      put_pixel(x, y, g_bg);
+  uint8_t r = (uint8_t)(g_bg >> 16), g = (uint8_t)(g_bg >> 8),
+          b = (uint8_t)g_bg;
+  uint32_t c32 =
+      (g_fmt == 0) ? ((uint32_t)r | ((uint32_t)g << 8) | ((uint32_t)b << 16))
+                   : ((uint32_t)b | ((uint32_t)g << 8) | ((uint32_t)r << 16));
+  uint64_t c64 = ((uint64_t)c32 << 32) | c32;
+  for (uint32_t y = 0; y < g_h; y++) {
+    uint8_t *rowb = g_base + (uint64_t)y * g_pitch;
+    uint32_t n64 = g_w / 2;
+    for (uint32_t x = 0; x < n64; x++)
+      naos_memcpy(rowb + (uint64_t)x * 8u, &c64, 8);
+    if (g_w & 1u)
+      naos_memcpy(rowb + (uint64_t)n64 * 8u, &c32, 4);
+  }
 }
 
 static void repaint(void); /* defined below draw_glyph */
@@ -160,22 +199,42 @@ static void draw_glyph(char c, uint32_t cx, uint32_t cy, uint32_t fg,
           fb2 = (uint8_t)fg;
   uint8_t br = (uint8_t)(bg >> 16), bg2 = (uint8_t)(bg >> 8),
           bb2 = (uint8_t)bg;
-  uint32_t sc = (uint32_t)g_scale;
-  for (uint32_t r = 0; r < GLYPH_H; r++) {
-    for (uint32_t col = 0; col < GLYPH_W; col++) {
-      uint32_t a = (g_cache[ch][r][col / 4] >> (6 - (col % 4) * 2)) & 3u;
-      uint8_t o0 = (uint8_t)(br + ((uint32_t)(fr - br) * a + 1u) / 3u);
-      uint8_t o1 = (uint8_t)(bg2 + ((uint32_t)(fg2 - bg2) * a + 1u) / 3u);
-      uint8_t o2 = (uint8_t)(bb2 + ((uint32_t)(fb2 - bb2) * a + 1u) / 3u);
-      for (uint32_t dy = 0; dy < sc; dy++) {
-        for (uint32_t dx = 0; dx < sc; dx++) {
-          uint32_t xx = cx * cell_w() + col * sc + dx;
-          uint32_t yy = cy * cell_h() + r * sc + dy;
-          if (xx >= g_w || yy >= g_h) continue;
-          uint8_t *p = g_base + (uint64_t)yy * g_pitch + (uint64_t)xx * 4u;
-          if (g_fmt == 0) { p[0] = o0; p[1] = o1; p[2] = o2; }
-          else            { p[0] = o2; p[1] = o1; p[2] = o0; }
-          p[3] = 0;
+  uint32_t lut[4];
+  uint32_t sc = g_px;
+  /* Blend once per alpha level (not per pixel): the inner loop is then
+   * table lookup + 32-bit stores. This is the repaint fast path. */
+  for (uint32_t a = 0; a < 4; a++) {
+    uint8_t o0 = (uint8_t)(br + ((uint32_t)(fr - br) * a + 1u) / 3u);
+    uint8_t o1 = (uint8_t)(bg2 + ((uint32_t)(fg2 - bg2) * a + 1u) / 3u);
+    uint8_t o2 = (uint8_t)(bb2 + ((uint32_t)(fb2 - bb2) * a + 1u) / 3u);
+    lut[a] = (g_fmt == 0)
+                 ? ((uint32_t)o0 | ((uint32_t)o1 << 8) | ((uint32_t)o2 << 16))
+                 : ((uint32_t)o2 | ((uint32_t)o1 << 8) | ((uint32_t)o0 << 16));
+  }
+  for (uint32_t r = 0; r < g_bh; r++) {
+    for (uint32_t col = 0; col < g_bw; col++) {
+      uint32_t byte =
+          g_bits[((uint32_t)ch * g_bh + r) * g_bpr + col / 4];
+      uint32_t col32 = lut[(byte >> (6 - (col % 4) * 2)) & 3u];
+      uint32_t bx = cx * cell_w() + col * sc;
+      uint32_t by = cy * cell_h() + r * sc;
+      /* Fast path: whole scaled pixel on screen (the common case). */
+      if (bx + sc <= g_w && by + sc <= g_h) {
+        for (uint32_t dy = 0; dy < sc; dy++) {
+          uint8_t *rowb =
+              g_base + (uint64_t)(by + dy) * g_pitch + (uint64_t)bx * 4u;
+          for (uint32_t dx = 0; dx < sc; dx++)
+            naos_memcpy(rowb + (uint64_t)dx * 4u, &col32, 4);
+        }
+      } else {
+        for (uint32_t dy = 0; dy < sc; dy++) {
+          for (uint32_t dx = 0; dx < sc; dx++) {
+            uint32_t xx = bx + dx;
+            uint32_t yy = by + dy;
+            if (xx >= g_w || yy >= g_h) continue;
+            naos_memcpy(g_base + (uint64_t)yy * g_pitch + (uint64_t)xx * 4u,
+                        &col32, 4);
+          }
         }
       }
     }
@@ -192,7 +251,7 @@ static void paint_line(uint32_t idx, uint32_t srow, uint32_t cols) {
 
 /* Vertical bar cursor at the live input position. */
 static void cursor_rect(uint32_t rgb) {
-  uint32_t w = (g_scale == 2) ? 4u : 2u;
+  uint32_t w = (g_px >= 2) ? 4u : 2u;
   uint32_t h = cell_h();
   for (uint32_t y = 0; y < h; y++)
     for (uint32_t x = 0; x < w; x++)
@@ -277,10 +336,11 @@ void fb_scroll_live(void) {
   repaint();
 }
 
-void fb_set_font(int scale) {
-  if (scale != 1 && scale != 2) return;
-  if (!g_ok || scale == g_scale) return;
-  g_scale = scale;
+void fb_set_font(int f) {
+  if (f < 0 || f > 4) return;
+  if (!g_ok || f == g_id) return;
+  g_id = f;
+  select_table();
   con_view = 0;
   repaint();
 }

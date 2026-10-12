@@ -177,7 +177,7 @@ File creation rule: ESP is built with `mformat -i build/NaOS.img -F -v NaOS ::` 
 * **Website + release DONE (2026-10-11):** vanilla HTML/CSS/JS site (root `index.html`, `versions/`, per-version page, `404.html`, GitHub-API file viewer `browse.html`); short SemVer + build-date version system; custom non-commercial source-available licence (`LICENCE.md`).
 * **Full sentences DONE (2026-10-10):** `make folder`, `copy` (files + recursive folders), `move` (rename / copy+delete); unix aliases removed.
 * **Live RAM disk DONE (2026-10-11):** `tools/mkramdisk.sh` builds a 40MB FAT32 image (`\NaOS\RAMDISK.IMG` on the ESP); `BOOTX64.EFI` stages it into <1G page runs, kernel `ramblk` mounts it as last-resort disk. CD/USB boot now has working files (session-only writes); HDD/NVMe boot unchanged (real disk wins via ATA signature probe). QEMU + VirtualBox verified: `run /PROGS/hello.elf` and `make-file` live.
-* **Console DONE (2026-10-11):** 128-line text ring with per-line colors, PgUp/PgDn scrollback (PS/2 + USB), `font normal|big` (12x24 / 24x48) persisted in `/SETTINGS.TXT`; `help` documents both.
+* **Console DONE (2026-10-11):** 256-line text ring with per-line colors, PgUp/PgDn scrollback (PS/2 + USB), fonts `small`/`normal`/`big`/`3`/`4` (8x16 authentic + 12x24 ×N) persisted in `/SETTINGS.TXT`, blinking cursor; fast repaint (blend tables + 32-bit fills); `help` documents all.
 * **Boot robustness DONE (2026-10-11):** `\startup.nsh` auto-boots from the firmware shell (pc-machine verified hands-free); blinking vertical-bar cursor at the prompt.
 * Post-v0.1.0 (v0.2.0 ideas, not in scope): TCP listen/accept, DNS resolver, 4K-LBA NVMe, MSI-X interrupts, file seek/append syscalls for programs, more NICs (virtio-net), real-hardware boot reports.
 

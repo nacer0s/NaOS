@@ -13,8 +13,26 @@
 static char g_prompt[PROMPT_MAX + 1] = "NaOS";
 static uint32_t g_fg = 0xFFFFFF;
 static uint32_t g_bg = 0x000000;
-static int g_font = 1;
+static int g_font = 1; /* 0 small, 1 normal, 2 big, 3 3x, 4 4x */
 static int g_from_file; /* 1 once a readable file supplied any key */
+
+/* Font words <-> ids. */
+static const char *font_word(int f) {
+  if (f == 0) return "small";
+  if (f == 1) return "normal";
+  if (f == 2) return "big";
+  if (f == 3) return "3";
+  return "4";
+}
+
+static int font_val(const char *s) {
+  if (naos_strcmp(s, "small") == 0) return 0;
+  if (naos_strcmp(s, "normal") == 0 || naos_strcmp(s, "1") == 0) return 1;
+  if (naos_strcmp(s, "big") == 0 || naos_strcmp(s, "2") == 0) return 2;
+  if (naos_strcmp(s, "3") == 0) return 3;
+  if (naos_strcmp(s, "4") == 0) return 4;
+  return -1;
+}
 
 static int hex_val(char c) {
   if (c >= '0' && c <= '9') return c - '0';
@@ -80,12 +98,9 @@ static void apply_line(char *line) {
       uint32_t v;
       if (parse_rgb(val, &v) == 0) { g_bg = v; g_from_file = 1; }
     } else if (naos_strcmp(line, "font") == 0) {
-      if (naos_strcmp(val, "big") == 0 || naos_strcmp(val, "2") == 0) {
-        g_font = 2;
-        g_from_file = 1;
-      } else if (naos_strcmp(val, "normal") == 0 ||
-                 naos_strcmp(val, "1") == 0) {
-        g_font = 1;
+      int f = font_val(val);
+      if (f >= 0) {
+        g_font = f;
         g_from_file = 1;
       }
     }
@@ -126,7 +141,7 @@ static void put_hex6(char *out, uint32_t v) {
 int settings_save(void) {
   static char buf[256];
   uint32_t n = 0;
-  const char *fontword = (g_font == 2) ? "big" : "normal";
+  const char *fontword = font_word(g_font);
   size_t i = 0;
   const char *p1 = "prompt=";
   while (*p1) buf[n++] = *p1++;
@@ -159,12 +174,13 @@ int settings_save(void) {
 
 void settings_show(void) {
   kprintf("prompt=%s fg=%x bg=%x font=%s (%s)\n", g_prompt, (unsigned)g_fg,
-          (unsigned)g_bg, (g_font == 2) ? "big" : "normal",
+          (unsigned)g_bg, font_word(g_font),
           g_from_file ? "/SETTINGS.TXT" : "defaults");
 }
 
-void settings_set_font(int scale) {
-  g_font = (scale == 2) ? 2 : 1;
+void settings_set_font(int f) {
+  if (f < 0 || f > 4) f = 1;
+  g_font = f;
   fb_set_font(g_font);
 }
 
