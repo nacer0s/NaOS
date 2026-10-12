@@ -461,6 +461,12 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Against host HTTP server (user-net): manifest compare (`installed 0.1.0, available 0.2.0`), 62-byte download with **sha OK** vs python hashlib, file reads back identical.
 * `dns github.com` → real address over the wire (140.82.121.4). Zero faults.
 
+### Changed - 2026-10-12 (release assets + website)
+
+* Release files renamed to `NaOS v0.1.0.iso` / `NaOS v0.1.0.img`; every download button and doc link updated (`%20`-encoded URLs). Build outputs keep canonical names.
+* Website: doc links (README/CHANGELOG/IDEA/LICENCE) now open an in-page popup served from GitHub raw (copy + open-on-GitHub inside, plain-link fallback without JS).
+* Fixed `browse.html` line gutter (missing `white-space:pre` ran all numbers onto one row).
+
 ### Added - 2026-10-11 (NaOS-FS reader)
 
 * NaOS File System v1 spec (in `kernel/fs/nafs.h` + `tools/mknafs.py`, kept in sync): 512B LE blocks, superblock (magic/version/root/checksum), 16×32B dir entries (case-sensitive names), contiguous files, nesting depth 8.
@@ -469,7 +475,9 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 ### Verified - 2026-10-11 (NaFS)
 
-* `nafs mount /DATA.NAFS` → label/blocks; `list` shows dirs + files; `read` prints text identical to the FAT originals. Zero faults.
+* `nafs mount /DATA.NAFS` → label/blocks; `list` shows dirs + files; `read` prints text identical to the FAT originals. `dns github.com` → real address over the wire. Zero faults.
+
+### Added - 2026-10-11 (firmware-shell auto-boot)
 
 * `tools/mkesp.sh` writes `\startup.nsh` (ESP root; mirrored to the ISO tree): if firmware ever drops to its shell, it auto-runs after the countdown and boots the first volume carrying `\EFI\BOOT\BOOTX64.EFI` — no typing needed. Zero impact on the normal path (shell never starts there).
 

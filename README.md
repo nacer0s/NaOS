@@ -6,8 +6,8 @@ A usable x86_64 UEFI operating system built **from scratch (0), in C** — no GR
 
 ## Download — try it without building
 
-* **Bootable ISO:** [NaOS.iso](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso) (68MB, UEFI, from the [v0.1.0 release](https://github.com/nacer0s/NaOS/releases)) — flash with Rufus in **DD mode**, boot as a UEFI device with **Secure Boot off**. CD/USB boot runs a **live RAM session** (files work, writes vanish on reboot); persistence needs a SATA/NVMe disk.
-* **Raw disk image:** [NaOS.img](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.img) (64MB FAT) — attach as a VM hard disk (IDE/SATA: boots **with files**) or `dd` to USB.
+* **Bootable ISO:** [NaOS v0.1.0.iso](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.iso) (68MB, UEFI, from the [v0.1.0 release](https://github.com/nacer0s/NaOS/releases)) — flash with Rufus in **DD mode**, boot as a UEFI device with **Secure Boot off**. CD/USB boot runs a **live RAM session** (files work, writes vanish on reboot); persistence needs a SATA/NVMe disk.
+* **Raw disk image:** [NaOS v0.1.0.img](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.img) (64MB FAT) — attach as a VM hard disk (IDE/SATA: boots **with files**) or `dd` to USB.
 * **Read the code online:** [file viewer](https://naos.nacer0s.com/browse.html) — browse every source file in your browser, no clone needed.
 * **Project website:** <https://naos.nacer0s.com> (this repo's `index.html`, served by GitHub Pages).
 

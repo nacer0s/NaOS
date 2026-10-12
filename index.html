@@ -115,6 +115,17 @@ footer .sp{margin-left:auto;display:flex;gap:20px}
 #top.show{display:flex}
 .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
 .reveal.in{opacity:1;transform:none}
+/* doc preview popup */
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:24px}
+.modal[hidden]{display:none}
+.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:760px;width:100%;max-height:84vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-bar{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:.8rem}
+.modal-bar .t{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-bar .sp{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none}
+.modal pre{padding:20px;font-size:.8rem;line-height:1.7;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#c9cdd4}
+.mbtn{background:none;border:1px solid var(--line);border-radius:7px;color:var(--muted);font-size:.75rem;padding:4px 12px;cursor:pointer;font-family:inherit}
+a.mbtn:hover{color:var(--accent);border-color:var(--accent);text-decoration:none}
+button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
 a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media(prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
@@ -164,7 +175,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
       <p class="lead">NaOS is a <strong>usable operating system</strong> written from scratch: its own UEFI bootloader, its own kernel, FAT32 storage, multitasking, USB keyboard and a TCP/IP stack. <strong>No GRUB. No libc. No prebuilt OS code.</strong></p>
       <div class="btns">
         <a class="btn btn-solid" href="versions/v0.1.0/"><i class="fa-solid fa-rocket"></i>Explore v0.1.0</a>
-        <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso"><i class="fa-solid fa-compact-disc"></i>Download ISO</a>
+        <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.iso"><i class="fa-solid fa-compact-disc"></i>Download ISO</a>
       </div>
     </div>
     <div class="term" aria-label="NaOS boot log">
@@ -234,8 +245,8 @@ NaOS&gt; </span><span class="cursor"></span></div>
       <p>Shell · FAT32 read/write · multitasking + fork · USB keyboard · UDP/DHCP/TCP + HTTP fetch · AHCI/NVMe/ATA.</p>
       <div class="btns">
         <a class="btn btn-solid" href="versions/v0.1.0/"><i class="fa-solid fa-arrow-right"></i>v0.1.0 details</a>
-        <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso"><i class="fa-solid fa-download"></i>NaOS.iso</a>
-        <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.img"><i class="fa-solid fa-hard-drive"></i>NaOS.img</a>
+        <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.iso"><i class="fa-solid fa-download"></i>NaOS v0.1.0.iso</a>
+        <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.img"><i class="fa-solid fa-hard-drive"></i>NaOS v0.1.0.img</a>
       </div>
     </div>
   </div>
@@ -254,7 +265,7 @@ export PATH=/opt/cross/bin:$PATH
 make all           <span class="c"># BOOTX64.EFI + KERNEL.ELF</span>
 make esp           <span class="c"># 64M FAT ESP image</span>
 make run           <span class="g"># QEMU + OVMF → NaOS&gt; shell</span></pre>
-    <p style="font-size:.9rem;color:var(--muted);margin-top:14px"><i class="fa-solid fa-compact-disc"></i>&nbsp; No build? Grab <a href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.iso">NaOS.iso</a> from the release, boot it with Rufus (DD mode, Secure Boot off) — or <a href="browse.html">browse the code online</a>.</p>
+    <p style="font-size:.9rem;color:var(--muted);margin-top:14px"><i class="fa-solid fa-compact-disc"></i>&nbsp; No build? Grab <a href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS%20v0.1.0.iso">NaOS v0.1.0.iso</a> from the release, boot it with Rufus (DD mode, Secure Boot off) — or <a href="browse.html">browse the code online</a>.</p>
   </div>
 </section>
 
@@ -269,10 +280,19 @@ make run           <span class="g"># QEMU + OVMF → NaOS&gt; shell</span></pre>
       <a href="https://tiktok.com/@nacer0s" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>
       <a href="https://t.me/nacer0s" aria-label="Telegram"><i class="fa-brands fa-telegram"></i></a>
     </span>
-    <span class="sp"><a href="LICENCE.md">Licence</a><a href="versions/">Versions</a></span>
+    <span class="sp"><a href="LICENCE.md" data-raw="https://raw.githubusercontent.com/nacer0s/NaOS/main/LICENCE.md" data-gh="https://github.com/nacer0s/NaOS/blob/main/LICENCE.md" data-title="LICENCE.md">Licence</a><a href="versions/">Versions</a></span>
   </div>
 </footer>
 <button id="top" aria-label="Back to top"><i class="fa-solid fa-arrow-up"></i></button>
+
+<div class="modal" id="docModal" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-label="File preview">
+    <div class="modal-bar"><span class="t mono" id="docTitle"></span>
+      <span class="sp"><button class="mbtn" id="docCopy">copy</button><a class="mbtn" id="docGh" href="#">GitHub</a><button class="mbtn" id="docClose">close</button></span>
+    </div>
+    <pre id="docBody">loading…</pre>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -294,6 +314,44 @@ make run           <span class="g"># QEMU + OVMF → NaOS&gt; shell</span></pre>
   var top = document.getElementById('top');
   window.addEventListener('scroll', function(){ top.classList.toggle('show', window.scrollY > 600); }, {passive:true});
   top.addEventListener('click', function(){ window.scrollTo({top:0, behavior:'smooth'}); });
+  /* doc preview popup: GitHub raw, no download */
+  var m = document.getElementById('docModal');
+  var title = document.getElementById('docTitle');
+  var body = document.getElementById('docBody');
+  var gh = document.getElementById('docGh');
+  var copyBtn = document.getElementById('docCopy');
+  var current = '';
+  function close(){ m.hidden = true; }
+  document.getElementById('docClose').addEventListener('click', close);
+  m.addEventListener('click', function(e){ if(e.target === m) close(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
+  copyBtn.addEventListener('click', function(){
+    if(!current || !navigator.clipboard) return;
+    navigator.clipboard.writeText(current).then(function(){
+      copyBtn.textContent = 'copied';
+      setTimeout(function(){ copyBtn.textContent = 'copy'; }, 1500);
+    });
+  });
+  document.querySelectorAll('a[data-raw]').forEach(function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      title.textContent = a.getAttribute('data-title') || 'file';
+      gh.href = a.getAttribute('data-gh') || a.href;
+      body.textContent = 'loading…';
+      current = '';
+      m.hidden = false;
+      fetch(a.getAttribute('data-raw')).then(function(r){
+        if(!r.ok) throw 0;
+        return r.text();
+      }).then(function(t){
+        if(t.length > 200000) t = t.slice(0, 200000) + '\n…(truncated)';
+        current = t;
+        body.textContent = t;
+      }).catch(function(){
+        body.textContent = 'Could not load (offline?). Open on GitHub instead.';
+      });
+    });
+  });
   /* copy buttons */
   document.querySelectorAll('.copy').forEach(function(btn){
     btn.addEventListener('click', function(){
