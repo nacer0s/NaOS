@@ -8,6 +8,7 @@
 #include "mm/pmm.h"
 #include "mm/kmalloc.h"
 #include "fs/fat32.h"
+#include "fs/nafs.h"
 #include "drv/rtc.h"
 #include "drv/acpi.h"
 #include "drv/speaker.h"
@@ -18,6 +19,8 @@
 #include "net/net.h"
 #include "net/dhcp.h"
 #include "net/tcp.h"
+#include "net/dns.h"
+#include "net/update.h"
 #include "settings.h"
 #include "task.h"
 #include "user/progs.h"
@@ -47,6 +50,22 @@ static void mkpath(const char *arg, char *out, size_t outsz) {
   size_t i = 0;
   while (arg[i] && n + 1 < outsz) { out[n++] = arg[i++]; }
   out[n] = '\0';
+}
+
+/* Split args into words in place (spaces/tabs). Returns word count. */
+static int split_words(char *a, char *w[], int max) {
+  int n = 0;
+  while (*a && n < max) {
+    while (*a == ' ' || *a == '\t') a++;
+    if (!*a) break;
+    w[n++] = a;
+    while (*a && *a != ' ' && *a != '\t') a++;
+    if (*a) {
+      *a = '\0';
+      a++;
+    }
+  }
+  return n;
 }
 
 /* Match a whole command word: returns pointer to args (skipping spaces),
@@ -242,6 +261,7 @@ static void dispatch(char *line) {
     kprintf("commands:\n");
     kprintf("  help               this list\n");
     kprintf("  version            show NaOS version\n");
+    kprintf("  about              developer, links, licence\n");
     kprintf("  clear              clear the screen\n");
     kprintf("  print <text>       show text on screen\n");
     kprintf("  memory             show memory info\n");
@@ -268,9 +288,17 @@ static void dispatch(char *line) {
             blk_name());
     kprintf("  usb                look for a USB keyboard now\n");
     kprintf("  nvme               NVMe info + write/read selftest\n");
+    kprintf("  nafs mount <img>   mount a NaOS-FS image file\n");
+    kprintf("  nafs list [/dir]   list the mounted NaOS-FS\n");
+    kprintf("  nafs read </file>  print a NaOS-FS text file\n");
     kprintf("  net                show network status\n");
     kprintf("  ping <ip>          ping an IPv4 address\n");
     kprintf("  dhcp               get IP via DHCP (proves UDP)\n");
+    kprintf("  dns <name>         resolve a hostname\n");
+    kprintf("  update check <host> <port> </manifest>\n");
+    kprintf("                     compare versions, list files\n");
+    kprintf("  update get <host> <port> </remote> </local> [sha]\n");
+    kprintf("                     download a file, verify its hash\n");
     kprintf("  fetch <ip> <port> </path>\n");
     kprintf("                     HTTP/1.0 GET over TCP, print body\n");
     kprintf("  settings           show prompt and colors (/SETTINGS.TXT)\n");
@@ -283,6 +311,11 @@ static void dispatch(char *line) {
   } else if (after(line, "version")) {
     kprintf("NaOS v%s\n", NAOS_VERSION);
     kprintf("build %s (x86_64 UEFI, from scratch)\n", NAOS_BUILD);
+  } else if (after(line, "about")) {
+    kprintf("NaOS v%s (%s) - usable x86_64 UEFI OS, from scratch in C\n",
+            NAOS_VERSION, NAOS_BUILD);
+    kprintf("Developer: nacer0s - github.com/nacer0s - nacer0s.com\n");
+    kprintf("Licence: source-available, non-commercial (see LICENCE.md)\n");
   } else if (after(line, "clear")) {
     fb_clear(settings_bg());
   } else if (after(line, "settings")) {
@@ -578,13 +611,61 @@ static void dispatch(char *line) {
     pci_list();
   } else if (after(line, "usb")) {
     usb_kbd_rescan();
-  } else if (after(line, "nvme")) {
+  } else if ((a = after(line, "nvme"))) {
+    (void)a;
     nvme_info();
     kprintf("nvme: selftest %s\n", nvme_selftest() == 0 ? "OK" : "FAIL");
+  } else if ((a = after(line, "nafs"))) {
+    char *w[4];
+    int n = split_words((char *)a, w, 4);
+    if (n >= 2 && naos_strcmp(w[0], "mount") == 0) nafs_mount(w[1]);
+    else if (n >= 1 && naos_strcmp(w[0], "list") == 0)
+      nafs_list(n >= 2 ? w[1] : "/");
+    else if (n >= 2 && naos_strcmp(w[0], "read") == 0) nafs_read(w[1]);
+    else {
+      kprintf("usage: nafs mount <fat-path-to-image>\n");
+      kprintf("       nafs list [/dir]\n");
+      kprintf("       nafs read </file>\n");
+    }
   } else if (after(line, "net")) {
     net_status();
   } else if (after(line, "dhcp")) {
     if (net_dhcp() == 0) net_status();
+  } else if ((a = after(line, "dns"))) {
+    if (*a == '\0') {
+      kprintf("usage: dns <name>\n");
+    } else {
+      uint32_t ip;
+      char ips[20];
+      if (net_parse_ip(a, &ip) == 0 || dns_resolve(a, &ip) == 0) {
+        net_ip_str(ip, ips);
+        kprintf("dns: %s is %s\n", a, ips);
+      } else {
+        kprintf("dns: no answer for '%s'\n", a);
+      }
+    }
+  } else if ((a = after(line, "update"))) {
+    char *w[6];
+    int n = split_words((char *)a, w, 6);
+    unsigned port = 0;
+    if (n >= 4 && naos_strcmp(w[0], "check") == 0) {
+      for (const char *p = w[2]; *p >= '0' && *p <= '9'; p++)
+        port = port * 10 + (unsigned)(*p - '0');
+      if (port > 0 && port < 65536 && w[3][0] == '/')
+        update_check(w[1], (uint16_t)port, w[3]);
+      else
+        kprintf("usage: update check <host> <port> </manifest>\n");
+    } else if (n >= 5 && naos_strcmp(w[0], "get") == 0) {
+      for (const char *p = w[2]; *p >= '0' && *p <= '9'; p++)
+        port = port * 10 + (unsigned)(*p - '0');
+      if (port > 0 && port < 65536 && w[3][0] == '/' && w[4][0] != '\0')
+        update_get(w[1], (uint16_t)port, w[3], w[4], n >= 6 ? w[5] : "");
+      else
+        kprintf("usage: update get <host> <port> </remote> </local> [sha]\n");
+    } else {
+      kprintf("usage: update check <host> <port> </manifest>\n");
+      kprintf("       update get <host> <port> </remote> </local> [sha]\n");
+    }
   } else if ((a = after(line, "fetch"))) {
     uint32_t ip = 0;
     unsigned port = 0;

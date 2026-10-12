@@ -14,6 +14,8 @@ int fat_is_dir(const char *path);
 int fat_read(const char *path, void *buf, uint32_t cap, uint32_t *size_out);
 /* Create-or-overwrite a file. Returns 0 ok, <0 on error. */
 int fat_write(const char *path, const void *buf, uint32_t len);
+/* Append bytes (create when missing). One consistent update. 0 ok. */
+int fat_append(const char *path, const void *buf, uint32_t len);
 /* Same, by parent cluster + 8.3 leaf (for file-descriptor flushes). */
 int fat_write_parts(uint32_t parent, const uint8_t leaf83[11],
                     const void *buf, uint32_t len);

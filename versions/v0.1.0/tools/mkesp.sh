@@ -26,6 +26,10 @@ if [ -f "$BUILD/ramdisk.img" ]; then
   mdir -i $IMG ::/NaOS >/dev/null 2>&1 || mmd -i $IMG ::/NaOS
   mcopy -i $IMG $BUILD/ramdisk.img ::/NaOS/RAMDISK.IMG
 fi
+# NaOS-FS demo image for the `nafs` command (read-only guest demo).
+if [ -f "$BUILD/data.nafs" ]; then
+  mcopy -i $IMG $BUILD/data.nafs ::/DATA.NAFS
+fi
 # Demo text file for the `cat` command (our own content, 8.3 name).
 printf 'Hello from the NaOS disk!\r\nThis file lives on the FAT32 ESP image.\r\nTry: go naos, list, read README.TXT\r\n' > $BUILD/README.TXT
 mcopy -i $IMG $BUILD/README.TXT ::/README.TXT

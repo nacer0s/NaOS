@@ -447,7 +447,29 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 * `make run` / `make run-iso` never passed `-machine q35`: stock QEMU boots the `pc` machine, whose OVMF drops to the EFI Internal Shell instead of auto-booting `\EFI\BOOT\BOOTX64.EFI` (reproduced headless; FS0 mounts fine, manual `FS0:` → `BOOTX64.EFI` path works). Both targets now pin `-machine q35`; README command block updated.
 
-### Added - 2026-10-11 (firmware-shell auto-boot)
+### Added - 2026-10-11 (updater phase 1 + about)
+
+* `about` command: version/build, developer, links, licence.
+* DNS client (`kernel/net/dns.h/.c`): A-record lookup over UDP with retries, compression-safe parsing, one CNAME chain followed; `dns` shell command (IP literals pass through).
+* SHA-256 (`kernel/lib/sha256.h/.c`, streaming) with built-in `abc` selftest that gates every update operation.
+* `fat_append()` (create-or-append, single consistent entry update) for streaming downloads.
+* `update check <host> <port> </manifest>` (version compare, file list) + `update get <host> <port> </remote> </local> [sha]` (2KB chunks straight to FAT, incremental hash). Host may be IP or DNS name. Nothing auto-applies in phase 1 — the human reviews.
+* Fixed along the way: SHA final-add used `f,g` for `h[4],h[5]` instead of `e,f` (caught by the selftest + host hashlib cross-check); `udp_recvfrom` lesson applied (payload-only).
+
+### Verified - 2026-10-11 (updater)
+
+* Against host HTTP server (user-net): manifest compare (`installed 0.1.0, available 0.2.0`), 62-byte download with **sha OK** vs python hashlib, file reads back identical.
+* `dns github.com` → real address over the wire (140.82.121.4). Zero faults.
+
+### Added - 2026-10-11 (NaOS-FS reader)
+
+* NaOS File System v1 spec (in `kernel/fs/nafs.h` + `tools/mknafs.py`, kept in sync): 512B LE blocks, superblock (magic/version/root/checksum), 16×32B dir entries (case-sensitive names), contiguous files, nesting depth 8.
+* `tools/mknafs.py` builds images from a staging dir; `make nafsdata` + `mkesp.sh` ship `/DATA.NAFS` on the ESP.
+* Read-only kernel driver + `nafs mount/list/read` commands (image lives as a FAT file; all offsets bounds-checked, corrupt images error cleanly). Writes are v0.2.0.
+
+### Verified - 2026-10-11 (NaFS)
+
+* `nafs mount /DATA.NAFS` → label/blocks; `list` shows dirs + files; `read` prints text identical to the FAT originals. Zero faults.
 
 * `tools/mkesp.sh` writes `\startup.nsh` (ESP root; mirrored to the ISO tree): if firmware ever drops to its shell, it auto-runs after the countdown and boots the first volume carrying `\EFI\BOOT\BOOTX64.EFI` — no typing needed. Zero impact on the normal path (shell never starts there).
 

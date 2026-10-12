@@ -518,6 +518,91 @@ int fat_write(const char *path, const void *buf, uint32_t len) {
   return fat_write_parts(parent, leaf, buf, len);
 }
 
+/* Append bytes to a file (created when missing). One call = one consistent
+ * update: data lands first, the directory entry (first cluster + new size)
+ * is written last. 0 ok. */
+int fat_append(const char *path, const void *buf, uint32_t len) {
+  static uint8_t sec[512];
+  uint32_t parent, slot_lba = 0, slot_off = 0;
+  uint8_t leaf[11];
+  uint32_t clus = 0, size = 0;
+  uint8_t attr = 0;
+  uint32_t first, cur, off, left, written = 0;
+  uint32_t per_clus = 512u * g_spc;
+  const uint8_t *src = (const uint8_t *)buf;
+  int have_old;
+  if (!g_ok || !path || (!buf && len > 0)) return -1;
+  if (resolve_parent(path, &parent, leaf) != 0) return -2;
+  have_old = (dir_find(parent, leaf, &clus, &size, &attr, &slot_lba,
+                       &slot_off) == 0);
+  if (have_old && (attr & ATTR_DIR)) return -6;
+  if (len == 0) {
+    if (have_old) return 0; /* touch existing: nothing to do */
+    if (dir_alloc_slot(parent, &slot_lba, &slot_off) != 0) return -5;
+    return write_entry(slot_lba, slot_off, leaf, 0x20, 0, 0);
+  }
+  if (!have_old) {
+    if (dir_alloc_slot(parent, &slot_lba, &slot_off) != 0) return -5;
+    clus = 0;
+    size = 0;
+  }
+  /* Walk to the last cluster of the current chain (if any). */
+  first = clus;
+  cur = clus;
+  if (cur >= 2) {
+    uint32_t nx;
+    while ((nx = fat_next(cur)) >= 2 && nx < EOC_MIN) cur = nx;
+  }
+  off = (first >= 2) ? (size % per_clus) : 0;
+  if (first < 2 || (size > 0 && off == 0)) {
+    /* Empty file, or last cluster exactly full: open a new one. */
+    uint32_t nc = fat_alloc();
+    if (nc == 0) goto done;
+    if (cur >= 2 && fat_set(cur, nc) != 0) {
+      fat_set(nc, 0);
+      goto done;
+    }
+    if (first < 2) first = nc;
+    cur = nc;
+    off = 0;
+  }
+  left = len;
+  while (left > 0) {
+    uint32_t room = per_clus - off;
+    uint32_t fill = (left < room) ? left : room;
+    uint32_t done = 0;
+    while (done < fill) {
+      uint32_t sno = (off + done) / 512u;
+      uint32_t soff = (off + done) % 512u;
+      uint32_t take = 512u - soff;
+      if (take > fill - done) take = fill - done;
+      if (blk_read(clus_to_lba(cur) + sno, 1, sec) != 0) goto done;
+      naos_memcpy(sec + soff, src + done, take);
+      if (blk_write(clus_to_lba(cur) + sno, 1, sec) != 0) goto done;
+      done += take;
+    }
+    src += fill;
+    left -= fill;
+    written += fill;
+    off += fill;
+    if (left > 0) {
+      uint32_t nc = fat_alloc();
+      if (nc == 0) goto done;
+      if (fat_set(cur, nc) != 0) {
+        fat_set(nc, 0);
+        goto done;
+      }
+      cur = nc;
+      off = 0;
+    }
+  }
+done:
+  /* Single entry update (also repairs size after a partial failure). */
+  if (write_entry(slot_lba, slot_off, leaf, 0x20, first, size + written) != 0)
+    return -4;
+  return (written == len) ? 0 : -3;
+}
+
 /* Write (create-or-truncate) by parent cluster + 8.3 leaf. Shared by
  * path writes and file-descriptor flushes. */
 int fat_write_parts(uint32_t parent, const uint8_t leaf83[11],

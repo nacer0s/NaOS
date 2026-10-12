@@ -4,7 +4,7 @@ A usable x86_64 UEFI operating system built **from scratch (0), in C** — no GR
 
 Status: **v0.1.0** (multitasking + isolated address spaces, files, USB, network, NVMe). `BOOTX64.EFI` loads `KERNEL.ELF`, and the kernel runs
 a `NaOS>` shell on a black GOP console with PS/2 and USB-HID keyboard input
-(`help version clear print memory test crash list go read make-folder make-file copy move rename edit delete run tasks kill time date uptime beep pci settings font usb nvme net dhcp fetch ping reboot shutdown`), own paging (PML4),
+(`help version about clear print memory test crash list go read make-folder make-file copy move rename edit delete run tasks kill time date uptime beep pci settings font usb nvme nafs net dhcp dns fetch update ping reboot shutdown`), own paging (PML4),
 a `kmalloc`/`kfree` heap, an AHCI/NVMe/ATA+FAT32 filesystem (read+write, long filenames), and preemptive multitasking
 (ring-3 tasks with private address spaces, syscalls, `fork()` with copy-on-write, round-robin scheduler,
 disk-loaded ELF programs with file I/O (`open`/`read`/`write`/`close`, stdout on fd 1)). Command output redirects with `<cmd> > <file>`, and `/SETTINGS.TXT`

@@ -38,8 +38,9 @@ KERN_SRCS  := kernel/kmain.c kernel/drv/fb.c kernel/drv/pit.c \
               kernel/drv/nvme.c kernel/drv/ramblk.c \
               kernel/drv/usb_kbd.c kernel/drv/e1000.c \
               kernel/net/net.c kernel/net/udp.c kernel/net/dhcp.c \
-              kernel/net/tcp.c kernel/lib/kprintf.c \
-              kernel/fs/fat32.c kernel/task.c \
+              kernel/net/tcp.c kernel/net/dns.c kernel/net/update.c \
+              kernel/lib/kprintf.c kernel/lib/sha256.c \
+              kernel/fs/fat32.c kernel/fs/nafs.c kernel/task.c \
               kernel/cpu/gdt.c kernel/cpu/idt.c kernel/cpu/isr.c \
               kernel/cpu/pic.c kernel/cpu/tss.c \
               kernel/mm/pmm.c kernel/mm/kmalloc.c \
@@ -83,7 +84,7 @@ OVMF := $(shell for f in $(OVMF_CANDS); do if [ -f "$$f" ]; then echo "$$f"; bre
 
 QEMU := qemu-system-x86_64
 
-.PHONY: all bootloader kernel progs ramdisk esp iso run run-iso check clean
+.PHONY: all bootloader kernel progs ramdisk nafsdata esp iso run run-iso check clean
 
 all: bootloader kernel progs
 
@@ -150,11 +151,19 @@ $(BUILD)/progs/%.elf: progs/%.c $(BUILD)/progs/crt0.o $(PROG_LD) | $(BUILD)
 $(BUILD):
 	mkdir -p $(BUILD)
 
-esp: all ramdisk
+esp: all ramdisk nafsdata
 	./tools/mkesp.sh
 
 ramdisk: progs
 	./tools/mkramdisk.sh
+
+# NaOS-FS demo image (PROGS + docs) for the `nafs` command.
+nafsdata: progs
+	mkdir -p $(BUILD)/nafs-stage/PROGS
+	cp $(BUILD)/progs/*.elf $(BUILD)/nafs-stage/PROGS/
+	printf 'Hello from NaOS-FS!\r\nThis file lives in the NaOS File System demo image.\r\n' > $(BUILD)/nafs-stage/README.TXT
+	printf '# NaOS settings mirror for the NaFS demo.\r\nprompt=NaOS\r\n' > $(BUILD)/nafs-stage/SETTINGS.TXT
+	"$(PY)" tools/mknafs.py --out $(BUILD)/data.nafs --label NaFSdemo $(BUILD)/nafs-stage
 
 iso: esp
 	./tools/mkiso.sh

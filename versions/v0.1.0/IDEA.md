@@ -179,6 +179,8 @@ File creation rule: ESP is built with `mformat -i build/NaOS.img -F -v NaOS ::` 
 * **Live RAM disk DONE (2026-10-11):** `tools/mkramdisk.sh` builds a 40MB FAT32 image (`\NaOS\RAMDISK.IMG` on the ESP); `BOOTX64.EFI` stages it into <1G page runs, kernel `ramblk` mounts it as last-resort disk. CD/USB boot now has working files (session-only writes); HDD/NVMe boot unchanged (real disk wins via ATA signature probe). QEMU + VirtualBox verified: `run /PROGS/hello.elf` and `make-file` live.
 * **Console DONE (2026-10-11):** 256-line text ring with per-line colors, PgUp/PgDn scrollback (PS/2 + USB), fonts `small`/`normal`/`big`/`3`/`4` (8x16 authentic + 12x24 ×N) persisted in `/SETTINGS.TXT`, blinking cursor; fast repaint (blend tables + 32-bit fills); `help` documents all.
 * **Boot robustness DONE (2026-10-11):** `\startup.nsh` auto-boots from the firmware shell (pc-machine verified hands-free); blinking vertical-bar cursor at the prompt.
+* **Updater phase 1 DONE (2026-10-11):** DNS client, SHA-256, `fat_append`, `update check/get` against any HTTP server (+ `dns`, `about` commands); downloads verified by hash, human reviews before apply.
+* **NaOS-FS reader DONE (2026-10-11):** NaOS File System v1 spec + `mknafs.py` + read-only driver (`nafs mount/list/read`); `/DATA.NAFS` ships on the ESP. Writes are v0.2.0.
 * Post-v0.1.0 (v0.2.0 ideas, not in scope): TCP listen/accept, DNS resolver, 4K-LBA NVMe, MSI-X interrupts, file seek/append syscalls for programs, more NICs (virtio-net), real-hardware boot reports.
 
 ## 8. Coding Rules (purity + safety)
