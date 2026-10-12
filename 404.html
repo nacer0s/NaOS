@@ -5,37 +5,37 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>404 — NaOS</title>
 <meta name="description" content="NaOS page not found.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0b0d'/%3E%3Ctext x='6' y='23' font-family='monospace' font-size='16' fill='%234ade80'%3E%3E_%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230A0B0D'/%3E%3Crect x='5' y='5' width='22' height='22' fill='none' stroke='%23FFB224' stroke-width='2'/%3E%3Ctext x='9' y='22' font-family='monospace' font-size='12' fill='%23FFB224'%3E%3E_%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://kit.fontawesome.com/835a2ccfff.js" crossorigin="anonymous"></script>
 <style>
-:root{--bg:#0b0b0d;--panel:#121316;--line:#23262c;--text:#e9eaee;--muted:#9aa0aa;--accent:#4ade80;--accent-ink:#052e14;--radius:14px}
+:root{--bg:#0A0B0D;--panel:#0F1114;--line:#22262E;--text:#E9E6DF;--muted:#8E929B;--accent:#FFB224;--accent-ink:#1A1206}
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
-.box{max-width:560px;width:100%;text-align:center}
-.term{background:#08090b;border:1px solid var(--line);border-radius:var(--radius);padding:26px;text-align:left;font-size:.9rem;line-height:1.9;margin-bottom:30px;white-space:pre-wrap}
-.term .e{color:#ff7b72}.term .o{color:#c9cdd4}.term .g{color:var(--accent)}
-h1{font-size:clamp(2.4rem,7vw,3.6rem);font-weight:800;letter-spacing:-.02em;margin-bottom:10px}
-p{color:var(--muted);margin-bottom:26px}
-.btns{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:.95rem;border-radius:10px;padding:12px 22px;text-decoration:none}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',ui-monospace,monospace;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-size:15px}
+.box{max-width:600px;width:100%}
+.term{background:#07080A;border:1px solid var(--line);padding:24px;font-size:13.5px;line-height:1.9;margin-bottom:32px;white-space:pre-wrap}
+.term .e{color:#FF7B72}.term .o{color:#C9C6BD}.term .g{color:var(--accent)}
+h1{font-family:'Archivo',sans-serif;font-size:clamp(2.4rem,7vw,3.6rem);font-weight:900;letter-spacing:-.015em;text-transform:uppercase;margin-bottom:10px}
+h1 .amp{color:var(--accent)}
+p{color:var(--muted);font-size:14px;margin-bottom:26px}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:13px;letter-spacing:.04em;padding:12px 20px;text-decoration:none}
 .btn-solid{background:var(--accent);color:var(--accent-ink)}
-.btn-ghost{border:1px solid var(--line);color:var(--text);background:var(--panel)}
+.btn-ghost{border:1px solid var(--line);color:var(--text)}
 </style>
 </head>
 <body>
 <div class="box">
-  <div class="term mono"><span class="o">NaOS&gt; </span><span class="o">go </span><span id="path" class="o"></span>
+  <div class="term"><span class="o">NaOS&gt; </span><span class="o">go </span><span id="path" class="o"></span>
 <span class="e">panic: sector not found (404)</span>
 <span class="g">hint: </span><span class="o">this address holds no bytes. head home.</span></div>
-  <h1>Lost sector.</h1>
+  <h1>Lost sector<span class="amp">.</span></h1>
   <p>The page you're looking for was never written to this disk.</p>
   <div class="btns">
-    <a class="btn btn-solid" href="/"><i class="fa-solid fa-house"></i>Home</a>
-    <a class="btn btn-ghost" href="/versions/"><i class="fa-solid fa-box-archive"></i>Versions</a>
+    <a class="btn btn-solid" href="/"><i class="fa-solid fa-house"></i>HOME</a>
+    <a class="btn btn-ghost" href="/versions/"><i class="fa-solid fa-box-archive"></i>VERSIONS</a>
   </div>
 </div>
 <script>

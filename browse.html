@@ -5,81 +5,84 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Browse code — NaOS</title>
 <meta name="description" content="Read the NaOS source in your browser. No download, no install.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b0b0d'/%3E%3Ctext x='6' y='23' font-family='monospace' font-size='16' fill='%234ade80'%3E%3E_%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230A0B0D'/%3E%3Crect x='5' y='5' width='22' height='22' fill='none' stroke='%23FFB224' stroke-width='2'/%3E%3Ctext x='9' y='22' font-family='monospace' font-size='12' fill='%23FFB224'%3E%3E_%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://kit.fontawesome.com/835a2ccfff.js" crossorigin="anonymous"></script>
 <style>
 :root{
-  --bg:#0b0b0d; --panel:#121316; --panel2:#17181c;
-  --line:#23262c; --text:#e9eaee; --muted:#9aa0aa;
-  --accent:#4ade80; --accent-ink:#052e14;
-  --radius:14px; --max:1180px;
+  --bg:#0A0B0D; --panel:#0F1114; --panel2:#14171C;
+  --line:#22262E; --text:#E9E6DF; --muted:#8E929B;
+  --accent:#FFB224; --accent-ink:#1A1206;
+  --max:1180px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
-.mono,code,pre{font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1{font-family:'Archivo',sans-serif}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
 ::selection{background:var(--accent);color:var(--accent-ink)}
 .wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
-nav{position:sticky;top:0;z-index:50;background:rgba(11,11,13,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
-nav .wrap{display:flex;align-items:center;gap:14px;height:62px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.15rem;color:var(--text)}
-.brand i{color:var(--accent)}
-.badge{font-size:.68rem;font-weight:600;background:rgba(74,222,128,.12);color:var(--accent);border:1px solid rgba(74,222,128,.35);border-radius:999px;padding:2px 10px;white-space:nowrap}
-.links{margin-left:auto;display:flex;gap:22px;font-size:.92rem}
-.links a{color:var(--muted)}
-.links a:hover{color:var(--text);text-decoration:none}
-.burger{display:none;margin-left:auto;background:none;border:1px solid var(--line);border-radius:8px;color:var(--text);padding:7px 11px;cursor:pointer}
-.page-head{padding:46px 0 24px}
-.page-head h1{font-size:clamp(1.7rem,4vw,2.4rem);font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
-.page-head h1 i{color:var(--accent);margin-right:12px}
-.page-head p{color:var(--muted);font-size:.95rem}
-.shell{display:grid;grid-template-columns:300px 1fr;gap:18px;padding-bottom:70px;align-items:start}
-.tree{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;max-height:70vh;overflow:auto;font-size:.85rem}
+nav{position:sticky;top:0;z-index:50;background:rgba(10,11,13,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:14px;height:60px}
+.mark{width:30px;height:30px;border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:13px;font-weight:600;flex:none}
+.brand{font-family:'Archivo',sans-serif;font-weight:800;font-size:1.1rem;color:var(--text)}
+a.brand:hover{text-decoration:none}
+.badge{font-size:11px;color:var(--accent);border:1px solid rgba(255,178,36,.4);padding:1px 8px;white-space:nowrap;letter-spacing:.1em}
+.links{margin-left:auto;display:flex;gap:24px;font-size:12px;letter-spacing:.12em}
+.links a{color:var(--muted);text-transform:uppercase}
+.links a:hover{color:var(--accent);text-decoration:none}
+.burger{display:none;margin-left:auto;background:none;border:1px solid var(--line);color:var(--text);padding:6px 10px;cursor:pointer}
+.page-head{padding:48px 0 26px}
+.page-head h1{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:900;letter-spacing:-.015em;text-transform:uppercase;margin:16px 0 8px}
+.page-head h1 .amp{color:var(--accent)}
+.page-head p{color:var(--muted);font-size:13.5px}
+.micro{font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.micro b{color:var(--accent);font-weight:600}
+.shell{display:grid;grid-template-columns:300px 1fr;gap:0;border:1px solid var(--line);margin-bottom:70px;align-items:start}
+.tree{padding:14px;max-height:70vh;overflow:auto;font-size:13px;border-right:1px solid var(--line)}
 .tnode{user-select:none}
-.trow{display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:8px;cursor:pointer;color:#c9cdd4;white-space:nowrap}
-.trow:hover{background:var(--panel2)}
-.trow.sel{background:rgba(74,222,128,.1);color:var(--accent)}
-.trow i{width:16px;text-align:center;color:var(--muted);flex:none}
+.trow{display:flex;align-items:center;gap:9px;padding:5px 9px;cursor:pointer;color:#C9C6BD;white-space:nowrap;border-left:2px solid transparent}
+.trow:hover{background:var(--panel)}
+.trow.sel{border-left-color:var(--accent);color:var(--accent);background:var(--panel)}
+.trow i{width:16px;text-align:center;color:var(--muted);flex:none;font-size:12px}
 .trow.sel i{color:var(--accent)}
-.tkids{margin-left:18px;border-left:1px solid var(--line);padding-left:6px}
-.viewer{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;min-width:0}
-.vbar{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--panel2);flex-wrap:wrap}
-.vbar .path{font-size:.82rem;color:var(--muted);word-break:break-all}
-.vbar .path b{color:var(--text)}
+.tkids{margin-left:16px;border-left:1px solid var(--line);padding-left:4px}
+.viewer{min-width:0;display:flex;flex-direction:column}
+.vbar{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);font-size:12px;flex-wrap:wrap}
+.vbar .path{color:var(--muted);word-break:break-all}
+.vbar .path b{color:var(--text);font-weight:500}
 .vbtns{margin-left:auto;display:flex;gap:8px}
-.vbtn{background:none;border:1px solid var(--line);border-radius:7px;color:var(--muted);font-size:.75rem;padding:5px 12px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:7px}
+.vbtn{background:none;border:1px solid var(--line);color:var(--muted);font-size:12px;padding:4px 12px;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:7px}
 .vbtn:hover{color:var(--accent);border-color:var(--accent);text-decoration:none}
 .codewrap{display:flex;max-height:70vh;overflow:auto}
-.gutter{flex:none;text-align:right;padding:16px 12px 16px 18px;color:#4b5158;font-size:.8rem;line-height:1.7;user-select:none;border-right:1px solid var(--line);background:#0d0e11;white-space:pre}
-.codebody{padding:16px 20px;font-size:.8rem;line-height:1.7;white-space:pre;color:#c9cdd4;flex:1}
-.status{padding:40px 20px;text-align:center;color:var(--muted);font-size:.9rem}
-.status i{font-size:1.6rem;color:var(--accent);margin-bottom:12px;display:block}
-footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:.85rem}
+.gutter{flex:none;text-align:right;padding:16px 12px 16px 18px;color:#4B5158;font-size:12.5px;line-height:1.7;user-select:none;border-right:1px solid var(--line);background:#0C0D10;white-space:pre}
+.codebody{padding:16px 20px;font-size:12.5px;line-height:1.7;white-space:pre;color:#C9C6BD;flex:1}
+.status{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px}
+.status i{font-size:22px;color:var(--accent);margin-bottom:12px;display:block}
+footer{border-top:1px solid var(--line);padding:30px 0;color:var(--muted);font-size:12.5px}
 footer .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
 footer .sp{margin-left:auto;display:flex;gap:20px}
-.socials{display:flex;gap:16px;font-size:1.05rem}
+footer a{color:var(--muted)}
+footer a:hover{color:var(--accent);text-decoration:none}
+.socials{display:flex;gap:15px;font-size:15px}
 .socials a{color:var(--muted)}
-.socials a:hover{color:var(--accent);text-decoration:none}
+.socials a:hover{color:var(--accent)}
 .modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:24px}
 .modal[hidden]{display:none}
-.modal-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:760px;width:100%;max-height:84vh;display:flex;flex-direction:column;overflow:hidden}
-.modal-bar{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:.8rem}
+.modal-box{background:var(--panel);border:1px solid var(--line);max-width:760px;width:100%;max-height:84vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-bar{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:12px}
 .modal-bar .t{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .modal-bar .sp{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none}
-.modal pre{padding:20px;font-size:.8rem;line-height:1.7;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#c9cdd4}
-.mbtn{background:none;border:1px solid var(--line);border-radius:7px;color:var(--muted);font-size:.75rem;padding:4px 12px;cursor:pointer;font-family:inherit}
+.modal pre{padding:20px;font-size:13px;line-height:1.7;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#C9C6BD}
+.mbtn{background:none;border:1px solid var(--line);color:var(--muted);font-size:12px;padding:4px 12px;cursor:pointer;font-family:inherit}
 a.mbtn:hover{color:var(--accent);border-color:var(--accent);text-decoration:none}
 button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
-@media(max-width:820px){
-  .shell{grid-template-columns:1fr}
-  .tree{max-height:300px}
-  .links{display:none;position:absolute;top:62px;left:0;right:0;background:var(--panel);flex-direction:column;padding:14px 24px 20px;gap:14px;border-bottom:1px solid var(--line)}
-  .links.open{display:flex}
-  .burger{display:block}
+@media(max-width:820px){.shell{grid-template-columns:1fr}.tree{max-height:300px;border-right:none;border-bottom:1px solid var(--line)}}
+@media(max-width:640px){
+.links{display:none;position:absolute;top:60px;left:0;right:0;background:var(--panel);flex-direction:column;padding:14px 24px 20px;gap:14px;border-bottom:1px solid var(--line)}
+.links.open{display:flex}.burger{display:block}
 }
 </style>
 </head>
@@ -87,8 +90,9 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
 
 <nav>
   <div class="wrap">
-    <a class="brand" href="index.html" style="text-decoration:none"><i class="fa-solid fa-terminal"></i>NaOS</a>
-    <span class="badge">code viewer</span>
+    <span class="mark">&gt;_</span>
+    <a class="brand" href="index.html">NaOS</a>
+    <span class="badge">SOURCE</span>
     <div class="links" id="navLinks">
       <a href="index.html">Home</a>
       <a href="versions/">Versions</a>
@@ -99,15 +103,16 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
 </nav>
 
 <div class="wrap page-head">
-  <h1><i class="fa-solid fa-folder-open"></i>Browse the source</h1>
-  <p>Read every file of <span class="mono">nacer0s/NaOS @ main</span> right here — no clone, no toolchain. Live from the GitHub API.</p>
+  <div class="micro"><b>FS.READ/01</b> — live from the GitHub API</div>
+  <h1>Browse the source<span class="amp">.</span></h1>
+  <p>Every file of <code>nacer0s/NaOS @ main</code> — no clone, no toolchain.</p>
 </div>
 
 <div class="wrap shell">
   <div class="tree" id="tree" aria-label="File tree"></div>
   <div class="viewer">
     <div class="vbar">
-      <span class="path mono" id="crumb">—</span>
+      <span class="path" id="crumb">—</span>
       <span class="vbtns">
         <button class="vbtn" id="copyBtn"><i class="fa-regular fa-copy"></i>copy</button>
         <a class="vbtn" id="ghBtn" href="https://github.com/nacer0s/NaOS" target="_blank" rel="noopener"><i class="fa-brands fa-github"></i>GitHub</a>
@@ -119,7 +124,7 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
 
 <footer>
   <div class="wrap">
-    <span><i class="fa-solid fa-terminal"></i>&nbsp; NaOS — from scratch, in C · <span id="year"></span></span>
+    <span>NaOS — from scratch, in C · <span id="year"></span></span>
     <span class="socials">
       <a href="https://github.com/nacer0s" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
       <a href="https://nacer0s.com" aria-label="Website"><i class="fa-solid fa-globe"></i></a>
@@ -134,7 +139,7 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
 
 <div class="modal" id="docModal" hidden>
   <div class="modal-box" role="dialog" aria-modal="true" aria-label="File preview">
-    <div class="modal-bar"><span class="t mono" id="docTitle"></span>
+    <div class="modal-bar"><span class="t" id="docTitle"></span>
       <span class="sp"><button class="mbtn" id="docCopy">copy</button><a class="mbtn" id="docGh" href="#">GitHub</a><button class="mbtn" id="docClose">close</button></span>
     </div>
     <pre id="docBody">loading…</pre>
@@ -147,44 +152,6 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
   document.getElementById('year').textContent = new Date().getFullYear();
   var b = document.getElementById('burger'), l = document.getElementById('navLinks');
   b.addEventListener('click', function(){ l.classList.toggle('open'); });
-  /* doc preview popup: GitHub raw, no download */
-  var m = document.getElementById('docModal');
-  var title = document.getElementById('docTitle');
-  var body = document.getElementById('docBody');
-  var gh = document.getElementById('docGh');
-  var copyBtn = document.getElementById('docCopy');
-  var current = '';
-  function close(){ m.hidden = true; }
-  document.getElementById('docClose').addEventListener('click', close);
-  m.addEventListener('click', function(e){ if(e.target === m) close(); });
-  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
-  copyBtn.addEventListener('click', function(){
-    if(!current || !navigator.clipboard) return;
-    navigator.clipboard.writeText(current).then(function(){
-      copyBtn.textContent = 'copied';
-      setTimeout(function(){ copyBtn.textContent = 'copy'; }, 1500);
-    });
-  });
-  document.querySelectorAll('a[data-raw]').forEach(function(a){
-    a.addEventListener('click', function(e){
-      e.preventDefault();
-      title.textContent = a.getAttribute('data-title') || 'file';
-      gh.href = a.getAttribute('data-gh') || a.href;
-      body.textContent = 'loading…';
-      current = '';
-      m.hidden = false;
-      fetch(a.getAttribute('data-raw')).then(function(r){
-        if(!r.ok) throw 0;
-        return r.text();
-      }).then(function(t){
-        if(t.length > 200000) t = t.slice(0, 200000) + '\n…(truncated)';
-        current = t;
-        body.textContent = t;
-      }).catch(function(){
-        body.textContent = 'Could not load (offline?). Open on GitHub instead.';
-      });
-    });
-  });
 
   var API = 'https://api.github.com/repos/nacer0s/NaOS/contents';
   var REF = 'main';
@@ -208,8 +175,7 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
   function status(icon, msg){
     stage.textContent = '';
     var d = el('div', 'status');
-    var i = el('i', icon);
-    d.appendChild(i);
+    d.appendChild(el('i', icon));
     d.appendChild(el('div', '', msg));
     stage.appendChild(d);
   }
@@ -231,13 +197,12 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
     if(row) row.classList.add('sel');
     openFile(path);
   }
-  function dirNode(item, depth){
+  function dirNode(item){
     var wrap = el('div', 'tnode');
     var row = el('div', 'trow');
     var ic = el('i', 'fa-solid fa-chevron-right');
     row.appendChild(ic);
-    var fi = el('i', 'fa-solid fa-folder');
-    row.appendChild(fi);
+    row.appendChild(el('i', 'fa-solid fa-folder'));
     row.appendChild(el('span', '', item.name));
     var kids = el('div', 'tkids');
     kids.style.display = 'none';
@@ -265,9 +230,8 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
   }
   function fileNode(item){
     var row = el('div', 'trow');
-    var ic = el('i', item.name.slice(-3) === '.md' ? 'fa-brands fa-markdown' : 'fa-regular fa-file-code');
-    row.appendChild(ic);
-    row.appendChild(el('span', 'mono', item.name));
+    row.appendChild(el('i', item.name.slice(-3) === '.md' ? 'fa-brands fa-markdown' : 'fa-regular fa-file-code'));
+    row.appendChild(el('span', '', item.name));
     row.title = item.path;
     row.addEventListener('click', function(){ select(item.path, row); });
     return row;
@@ -286,7 +250,8 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
       return;
     }
     status('fa-solid fa-circle-notch fa-spin', 'loading ' + path + ' …');
-    /* find size/download url: walk cache, else list parent */
+    var parts = path.split('/');
+    var parent = parts.slice(0, -1).join('/');
     function load(url, size){
       if(size > MAX_BYTES){ status('fa-solid fa-file', 'File is too big to preview (' + size + ' bytes) — open it on GitHub.'); return; }
       fetch(url).then(function(r){
@@ -294,8 +259,6 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
         return r.text();
       }).then(function(t){ render(t); }).catch(function(){ status('fa-solid fa-triangle-exclamation', 'Could not load this file. Check your connection or open it on GitHub.'); });
     }
-    var parts = path.split('/');
-    var parent = parts.slice(0, -1).join('/');
     function fromList(items){
       for(var i = 0; i < items.length; i++){
         if(items[i].path === path){ load(items[i].download_url, items[i].size || 0); return; }
@@ -310,10 +273,10 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
     currentText = text;
     stage.textContent = '';
     var wrap = el('div', 'codewrap');
-    var gut = el('div', 'gutter mono');
+    var gut = el('div', 'gutter');
     var pre = el('pre', 'codebody');
     var lines = text.split('\n');
-    if(lines.length > 5000){ pre.textContent = text; }
+    if(lines.length > 5000){ pre.textContent = text; gut.textContent = '…'; }
     else {
       var g = '';
       for(var i = 1; i <= lines.length; i++) g += i + '\n';
@@ -333,7 +296,6 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
     });
   });
 
-  /* boot: root tree + README */
   api('').then(function(items){
     cache[''] = items;
     tree.textContent = '';
@@ -341,7 +303,6 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
       tree.appendChild(it.type === 'dir' ? dirNode(it) : fileNode(it));
     });
     openFile('README.md');
-    /* highlight README row once rendered */
     var rows = tree.querySelectorAll('.trow');
     for(var i = 0; i < rows.length; i++){
       if(rows[i].title === 'README.md'){ rows[i].classList.add('sel'); break; }
@@ -353,6 +314,44 @@ button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
     d.appendChild(el('div', '', 'GitHub API unreachable (offline or rate-limited). Try again later or visit github.com/nacer0s/NaOS.'));
     tree.appendChild(d);
     status('fa-solid fa-wifi', 'Nothing to show without a connection.');
+  });
+
+  var m = document.getElementById('docModal');
+  var title = document.getElementById('docTitle');
+  var dbody = document.getElementById('docBody');
+  var dgh = document.getElementById('docGh');
+  var dcopy = document.getElementById('docCopy');
+  var dcurrent = '';
+  function close(){ m.hidden = true; }
+  document.getElementById('docClose').addEventListener('click', close);
+  m.addEventListener('click', function(e){ if(e.target === m) close(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
+  dcopy.addEventListener('click', function(){
+    if(!dcurrent || !navigator.clipboard) return;
+    navigator.clipboard.writeText(dcurrent).then(function(){
+      dcopy.textContent = 'copied';
+      setTimeout(function(){ dcopy.textContent = 'copy'; }, 1500);
+    });
+  });
+  document.querySelectorAll('a[data-raw]').forEach(function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      title.textContent = a.getAttribute('data-title') || 'file';
+      dgh.href = a.getAttribute('data-gh') || a.href;
+      dbody.textContent = 'loading…';
+      dcurrent = '';
+      m.hidden = false;
+      fetch(a.getAttribute('data-raw')).then(function(r){
+        if(!r.ok) throw 0;
+        return r.text();
+      }).then(function(t){
+        if(t.length > 200000) t = t.slice(0, 200000) + '\n…(truncated)';
+        dcurrent = t;
+        dbody.textContent = t;
+      }).catch(function(){
+        dbody.textContent = 'Could not load (offline?). Open on GitHub instead.';
+      });
+    });
   });
 })();
 </script>
