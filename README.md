@@ -55,10 +55,11 @@ One-time host setup (Windows + MSYS2 UCRT64, QEMU via `winget`, rest via `pacman
 README.md            this file — project hub (global, not per-version)
 LICENCE.md           custom licence for the whole project (source-available, non-commercial)
 SECURITY.md          security policy: supported versions + how to report
-index.html           project website (vanilla HTML/CSS/JS, offline-safe)
-browse.html          in-browser source viewer (GitHub API, no install)
-activity.html        live repo track: commits, releases, download counts
-404.html             website "lost sector" page
+index.html           root redirect → home/ (meta + JS + manual link)
+home/index.html      project website (dossier design, offline-safe)
+browse/index.html    in-browser source viewer (GitHub API, no install)
+activity/index.html  live repo track: commits, releases, download counts
+404.html             website "lost sector" page (must stay at root for Pages)
 versions/
   v0.1.0/            frozen v0.1.0 snapshot: Makefile, boot/, kernel/,
                      common/, progs/, tools/, docs, website, build/ (generated)

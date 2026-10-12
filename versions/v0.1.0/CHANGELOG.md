@@ -477,7 +477,10 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Numbers pinned everywhere from source: artifact bytes, bases, ports, caps, counts (root README table, v0.1.0 README table, versions meta, v0.1.0 run notes, browse head).
 * Fixed stale IDEA memory-map lines (own PML4 is done since P6).
 
-### Added - 2026-10-11 (NaOS-FS reader)
+### Changed - 2026-10-12 (website IA: folder-per-page URLs)
+
+* Site restructured to `home/`, `browse/`, `activity/` folders (auto `index.html` each); root `index.html` is a redirect (meta + JS + manual link). `404.html` stays at root (Pages requirement).
+* All five footers unified: tagline + © year nacer0s, socials, section links.
 
 * NaOS File System v1 spec (in `kernel/fs/nafs.h` + `tools/mknafs.py`, kept in sync): 512B LE blocks, superblock (magic/version/root/checksum), 16×32B dir entries (case-sensitive names), contiguous files, nesting depth 8.
 * `tools/mknafs.py` builds images from a staging dir; `make nafsdata` + `mkesp.sh` ship `/DATA.NAFS` on the ESP.
