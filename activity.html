@@ -76,6 +76,14 @@ a.tag:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
 .bars{display:flex;align-items:flex-end;gap:3px;height:64px;border:1px solid var(--line);padding:10px 12px;background:var(--panel)}
 .bars i{flex:1;min-width:2px;background:var(--accent);opacity:.85;min-height:2px}
 .bars i.zero{background:var(--line);opacity:1}
+.ahead{display:flex;align-items:center;gap:14px;border:1px solid var(--line);background:var(--panel);padding:14px 20px;margin-bottom:22px;font-size:13px}
+.ahead b{color:var(--accent);font-weight:600}
+.ahead a{margin-left:auto;white-space:nowrap;font-size:12.5px}
+.vel{display:flex;align-items:stretch;gap:3px;height:64px;border:1px solid var(--line);padding:8px 12px;background:var(--panel)}
+.vel .col{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1px;min-width:2px}
+.vel .up{background:var(--accent);opacity:.85}
+.vel .dn{background:#3A3E45}
+.vel .zero{background:var(--line)}
 .rel{border:1px solid var(--line);background:var(--panel);padding:24px 28px;margin-top:18px}
 .rel h3{font-size:1.2rem;font-weight:800}
 .rel .meta{font-size:12px;color:var(--muted);margin:6px 0 14px}
@@ -181,8 +189,9 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
 <section>
   <div class="wrap">
     <div class="sec-head"><span class="idx">04/</span><h2>Rhythm</h2></div>
-    <p class="sec-sub" style="color:var(--muted);font-size:14px;margin-bottom:20px">Commits per week, last 52 weeks. Bars only — no vanity charts.</p>
+    <p class="sec-sub" style="color:var(--muted);font-size:14px;margin-bottom:20px">Commits per week, last 52 weeks · additions/deletions below. Bars only — no vanity charts.</p>
     <div class="bars reveal" id="bars"><span style="color:var(--muted);font-size:13px">loading…</span></div>
+    <div class="vel reveal" id="vel" style="margin-top:10px"><span style="color:var(--muted);font-size:13px">loading…</span></div>
     <div style="height:56px"></div>
   </div>
 </section>
@@ -191,6 +200,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
   <div class="wrap">
     <div class="sec-head"><span class="idx">05/</span><h2>Commits</h2></div>
     <p class="sec-sub" style="color:var(--muted);font-size:14px;margin-bottom:20px">Latest 20 on <code>main</code> — sha · message · author · age.</p>
+    <div class="ahead reveal" id="ahead" hidden></div>
     <div class="feed reveal" id="feed"><div class="empty">loading commits…</div></div>
     <div style="height:70px"></div>
   </div>
@@ -391,6 +401,8 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
       fx.appendChild(el('b', '', (j.license && j.license.spdx_id) || 'custom'));
       fx.appendChild(document.createTextNode(' · branch '));
       fx.appendChild(el('b', '', j.default_branch || 'main'));
+      fx.appendChild(document.createTextNode(' · watching '));
+      fx.appendChild(el('b', '', String(j.subscribers_count || 0)));
     }).catch(function(){});
   }
   function loadTags(){
@@ -463,8 +475,50 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
       var w = document.getElementById('bars');
       if(w) w.innerHTML = '<span style="color:var(--muted);font-size:13px">rhythm unavailable right now</span>';
     });
+    get(BASE + '/stats/code_frequency').then(function(arr){
+      if(!arr || !arr.length) throw 0;
+      var w = document.getElementById('vel');
+      w.textContent = '';
+      var weeks = arr.slice(-26), max = 1, i;
+      for(i = 0; i < weeks.length; i++){
+        if(weeks[i][1] > max) max = weeks[i][1];
+        if(-weeks[i][2] > max) max = -weeks[i][2];
+      }
+      weeks.forEach(function(wk){
+        var col = el('div', 'col');
+        var up = el('i', wk[1] ? 'up' : 'zero');
+        var dn = el('i', wk[2] ? 'dn' : 'zero');
+        up.style.flex = Math.max(1, Math.round(48 * wk[1] / max));
+        dn.style.flex = Math.max(1, Math.round(48 * -wk[2] / max));
+        var d = new Date(wk[0] * 1000);
+        col.title = 'w/c ' + d.toISOString().slice(0, 10) + ': +' + wk[1] + ' / ' + wk[2];
+        col.appendChild(up);
+        col.appendChild(dn);
+        w.appendChild(col);
+      });
+    }).catch(function(){
+      var w = document.getElementById('vel');
+      if(w) w.innerHTML = '<span style="color:var(--muted);font-size:13px">velocity unavailable right now</span>';
+    });
   }
-  function loadAll(){ loadStatus(); loadRelease(); loadCommits(); loadLangs(); loadPeopleFacts(); loadTags(); loadThreads(); loadRhythm(); }
+  function loadAhead(){
+    get(BASE + '/compare/v0.1.0...main').then(function(j){
+      if(!j || !j.ahead_by) return;
+      var w = document.getElementById('ahead');
+      w.hidden = false;
+      w.textContent = '';
+      var t = el('span', '');
+      t.appendChild(el('b', '', j.ahead_by + ' commits'));
+      t.appendChild(document.createTextNode(' ahead of v0.1.0 · ' + (j.files ? j.files.length : 0) + ' files touched'));
+      w.appendChild(t);
+      var a = el('a', '', 'compare →');
+      a.href = 'https://github.com/nacer0s/NaOS/compare/v0.1.0...main';
+      a.target = '_blank';
+      a.rel = 'noopener';
+      w.appendChild(a);
+    }).catch(function(){});
+  }
+  function loadAll(){ loadStatus(); loadRelease(); loadCommits(); loadLangs(); loadPeopleFacts(); loadTags(); loadThreads(); loadRhythm(); loadAhead(); }
   document.getElementById('refresh').addEventListener('click', loadAll);
   loadAll();
 
