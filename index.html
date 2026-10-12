@@ -215,9 +215,88 @@ NaOS&gt; </span><span class="cursor"></span></div>
   </div>
 </section>
 
+<section id="boot" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">04/</span><h2>Boot sequence</h2></div>
+    <p class="sec-sub">Seven steps from power-on to prompt. Measured on QEMU q35 + OVMF, typical run.</p>
+    <div class="tbl">
+    <table>
+      <tr><th>#</th><th>Stage</th><th>What happens</th><th>Artifact</th></tr>
+      <tr><td class="mono">00</td><td>UEFI firmware</td><td>Mounts the ESP, runs the fallback loader</td><td class="mono">\EFI\BOOT\BOOTX64.EFI · 15,656 B</td></tr>
+      <tr><td class="mono">01</td><td>BOOTX64.EFI</td><td>GOP framebuffer, parses ELF64, stages the RAM disk</td><td class="mono">\NaOS\KERNEL.ELF → 0x100000</td></tr>
+      <tr><td class="mono">02</td><td>ExitBootServices</td><td>One-shot exit; hands a <code>bootinfo</code> struct down</td><td class="mono">NAOS_BOOTINFO_MAGIC</td></tr>
+      <tr><td class="mono">03</td><td>kernel_entry</td><td>GDT · IDT · PIC · PIT 100Hz · PMM · own PML4 · heap</td><td class="mono">CR3 switch, 16 task slots</td></tr>
+      <tr><td class="mono">04</td><td>Drivers</td><td>Block (AHCI → NVMe → ATA → RAM disk) · FAT32 · USB · E1000</td><td class="mono">blk: using …</td></tr>
+      <tr><td class="mono">05</td><td>Network</td><td>Static IP, then DHCP lease when a server answers</td><td class="mono">10.0.2.15/24 via 10.0.2.2</td></tr>
+      <tr><td class="mono">06</td><td>NaOS&gt; shell</td><td>Settings load, 39 commands, blinking cursor</td><td class="mono">/SETTINGS.TXT</td></tr>
+    </table>
+    </div>
+    <p class="note">Detour path: if firmware drops to its shell instead, <code>\startup.nsh</code> auto-boots us after the countdown — no typing needed.</p>
+  </div>
+</section>
+
+<section id="memory" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">05/</span><h2>Memory map</h2></div>
+    <p class="sec-sub">Physical layout. Values typical for QEMU q35 + 256M (PMM reports ~52K free pages at boot).</p>
+    <div class="tbl">
+    <table>
+      <tr><th>Range</th><th>Use</th></tr>
+      <tr><td class="mono">0x000000–0x09FFFF</td><td>Low memory — firmware-owned until ExitBootServices</td></tr>
+      <tr><td class="mono">0x100000 …</td><td>Kernel ELF <code>LOAD</code> segments, entry <code>kernel_entry</code></td></tr>
+      <tr><td class="mono">&lt; 0x40000000</td><td>Live RAM-disk runs (40MB FAT32, staged pre-exit)</td></tr>
+      <tr><td class="mono">0x40100000…</td><td>Ring-3 programs (fixed base, private tables per task)</td></tr>
+      <tr><td class="mono">0 … 1G identity</td><td>Own PML4: identity 0–1G + framebuffer window, 2M pages</td></tr>
+      <tr><td class="mono">EfiConventionalMemory</td><td>PMM free-page stack · 4KB pages · 16KB kernel stacks</td></tr>
+    </table>
+    </div>
+  </div>
+</section>
+
+<section id="syscalls" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">06/</span><h2>Syscall table</h2></div>
+    <p class="sec-sub">Ring-3 gate: <code>int 0x80</code>. Ten calls, 0–9. Max 2048 bytes per call; 8 fds per task, opens start at 3.</p>
+    <div class="tbl">
+    <table>
+      <tr><th>#</th><th>Call</th><th>Signature</th></tr>
+      <tr><td class="mono">0</td><td class="mono">exit</td><td class="mono">exit()</td></tr>
+      <tr><td class="mono">1</td><td class="mono">print</td><td class="mono">print(s, len) → written</td></tr>
+      <tr><td class="mono">2</td><td class="mono">yield</td><td class="mono">yield()</td></tr>
+      <tr><td class="mono">3</td><td class="mono">getpid</td><td class="mono">getpid() → id</td></tr>
+      <tr><td class="mono">4</td><td class="mono">sleep</td><td class="mono">sleep(ticks)</td></tr>
+      <tr><td class="mono">5</td><td class="mono">fork</td><td class="mono">fork() → child pid (CoW)</td></tr>
+      <tr><td class="mono">6</td><td class="mono">open</td><td class="mono">open(path, 0=r|1=w|2=a) → fd</td></tr>
+      <tr><td class="mono">7</td><td class="mono">read</td><td class="mono">read(fd, buf, len) → bytes</td></tr>
+      <tr><td class="mono">8</td><td class="mono">write</td><td class="mono">write(fd, buf, len) → bytes</td></tr>
+      <tr><td class="mono">9</td><td class="mono">close</td><td class="mono">close(fd) — flushes writes</td></tr>
+    </table>
+    </div>
+  </div>
+</section>
+
+<section id="limits" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">07/</span><h2>Honest limits</h2></div>
+    <p class="sec-sub">What v0.1.0 does not do. No asterisks hidden anywhere else on this page.</p>
+    <div class="tbl">
+    <table>
+      <tr><th>Area</th><th>Limit</th><th>Tracks to</th></tr>
+      <tr><td>TCP</td><td>Client only — no listen/accept</td><td class="mono">v0.2.0</td></tr>
+      <tr><td>TLS</td><td>None — updates over plain HTTP only</td><td class="mono">v0.2.0</td></tr>
+      <tr><td>NVMe</td><td>512-byte namespaces, one I/O queue pair, polled</td><td class="mono">v0.2.0</td></tr>
+      <tr><td>Optical/USB storage</td><td>No ATAPI, no USB mass — CD/USB boot uses the RAM session</td><td class="mono">v0.2.0</td></tr>
+      <tr><td>NaOS-FS</td><td>Read-only guest; writes later</td><td class="mono">v0.2.0</td></tr>
+      <tr><td>Hardening</td><td>No ASLR, no stack protector, no signatures</td><td class="mono">later</td></tr>
+      <tr><td>Firmware</td><td>UEFI-only 64-bit, Secure Boot off</td><td class="mono">by design</td></tr>
+    </table>
+    </div>
+  </div>
+</section>
+
 <section id="versions" style="padding-top:0">
   <div class="wrap">
-    <div class="sec-head"><span class="idx">04/</span><h2>Versions</h2></div>
+    <div class="sec-head"><span class="idx">08/</span><h2>Versions</h2></div>
     <p class="sec-sub">Each release is a frozen snapshot — source, tools, docs and changelog included. <a href="versions/">Browse all versions →</a></p>
     <div class="panel">
       <div>
@@ -236,7 +315,7 @@ NaOS&gt; </span><span class="cursor"></span></div>
 
 <section id="build" style="padding-top:0">
   <div class="wrap">
-    <div class="sec-head"><span class="idx">05/</span><h2>Build it</h2></div>
+    <div class="sec-head"><span class="idx">09/</span><h2>Build it</h2></div>
     <p class="sec-sub">Windows + MSYS2 UCRT64, QEMU, and the <code>/opt/cross</code> toolchain. Full setup in the version README.</p>
     <div class="copy-row"><button class="copy" data-copy="buildCmd"><i class="fa-regular fa-copy"></i> copy</button></div>
 <pre class="code" id="buildCmd"><span class="c"># inside versions/v0.1.0</span>

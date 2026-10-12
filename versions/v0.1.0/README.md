@@ -98,6 +98,20 @@ You must know before trying:
 * **Honest hardware limits (v0.1.0):** the disk driver speaks AHCI first (port 0, polling DMA), then NVMe (one I/O queue pair, polled, 512B namespaces), with a legacy IDE PIO fallback; keyboards work over PS/2 and USB HID (XHCI, polled). Any SATA/NVMe disk plus a PS/2 or USB keyboard for input covers most machines.
 * Writing files on real hardware writes the USB stick's FAT partition — back it up first.
 
+## Numbers (all verified on QEMU q35 unless noted)
+
+| What | Value |
+|---|---|
+| Shell commands | 39 (see `help`; + `PgUp/PgDn` keys, `> file` redirect with 8KB window) |
+| Syscalls | 10 via `int 0x80`: 0 exit, 1 print, 2 yield, 3 getpid, 4 sleep, 5 fork, 6 open, 7 read, 8 write, 9 close |
+| Tasks / scheduler | 16 slots · 50ms quantum @100Hz · 8 fds per task (opens from 3, 2048B per call, 4KB write buffer) |
+| Memory | kernel @`0x100000` · programs @`0x40100000` · PML4 identity 0–1G · ~52K free pages/256M |
+| Console | 12x24 + 8x16 cells, scales 1–4 · 256-line ring · history 16 · cursor ~4Hz |
+| Storage | AHCI port 0 → NVMe (admin 64 + IO 32 queues) → ATA PIO (LBA0 signature probe) → 40MB RAM disk |
+| Network | E1000 · ARP/ICMP/UDP(68→67 DHCP)/TCP(1460 MSS, 4KB window) · DNS:53 · default 10.0.2.15/24 via 10.0.2.2 |
+| Filesystems | FAT32 R/W (LFN reads) · NaOS-FS v1 reader (512B blocks, 16×32B dirents, depth 8) |
+| Artifacts | BOOTX64.EFI 15,656 B · KERNEL.ELF 150,848 B · RAMDISK 40MiB · DATA.NAFS 61,952 B · ESP 64MiB · ISO ~67.7MiB |
+
 ## Layout
 
 ```

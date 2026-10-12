@@ -121,8 +121,8 @@ typedef struct {
 * `0x000000–0x09FFFF` low mem (UEFI-owned until ExitBootServices, do not touch early)
 * `0x100000 (1M)` kernel ELF load base, `LOAD` segments copied here by loader
 * Kernel stack: 64K reserved in `.bss` (`stack_top`), 16-byte aligned per SysV ABI
-* Framebuffer: identity-mapped by firmware; we reuse mapping (no own paging in v0.1; own PML4 is phase 5+)
-* PMM: free pages discovered from UEFI `MemoryMap` (`EfiConventionalMemory` only)
+* Framebuffer: identity-mapped in our own PML4 window (P6 paging DONE; firmware mapping reused before that)
+* PMM: free pages discovered from UEFI `MemoryMap` (`EfiConventionalMemory` only, ~52K pages on QEMU q35/256M)
 
 ## 6. Workflow (how we work, every time)
 

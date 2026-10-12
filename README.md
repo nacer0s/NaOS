@@ -21,6 +21,19 @@ Each version is a **frozen, self-contained snapshot**: own source, Makefile, too
 
 Per-version docs live inside the folder: [v0.1.0 README](versions/v0.1.0/README.md) (build + commands), [IDEA](versions/v0.1.0/IDEA.md) (vision + phases), [CHANGELOG](versions/v0.1.0/CHANGELOG.md) (every change). Version numbers are short SemVer (`VERSION` in each Makefile); `version` prints the build date on its own line.
 
+## Numbers (v0.1.0, verified)
+
+| What | Value |
+|---|---|
+| Shell commands | 39, plain English |
+| Syscalls | 10 (`int 0x80`, #0–9: exit/print/yield/getpid/sleep/fork/open/read/write/close) |
+| Tasks / fds | 16 slots, 50ms quantum @100Hz · 8 fds per task, opens from 3 |
+| Kernel / user bases | `0x100000` / `0x40100000` · PML4 identity 0–1G |
+| BOOTX64.EFI / KERNEL.ELF | 15,656 B / 150,848 B |
+| ESP / ISO / RAM disk / DATA.NAFS | 64MiB / ~67.7MiB / 40MiB / 61,952 B |
+| Default network | 10.0.2.15/24 via 10.0.2.2, DNS 10.0.2.3 (QEMU user-net) |
+| Fonts | 12x24 + 8x16 bitmaps, scales 1–4 · 256-line scrollback ring |
+
 ## Build & run (every session)
 
 ```bash

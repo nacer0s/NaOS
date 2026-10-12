@@ -467,6 +467,12 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Website: doc links (README/CHANGELOG/IDEA/LICENCE) now open an in-page popup served from GitHub raw (copy + open-on-GitHub inside, plain-link fallback without JS).
 * Fixed `browse.html` line gutter (missing `white-space:pre` ran all numbers onto one row).
 
+### Changed - 2026-10-12 (microscope pass: landing sections + numbers)
+
+* Landing page rebuilt around 4 new spec sections (boot sequence, memory map, syscall table, honest limits) + renumbered 02–09; dossier system kept (Archivo Black + Plex Mono, hairlines, amber).
+* Numbers pinned everywhere from source: artifact bytes, bases, ports, caps, counts (root README table, v0.1.0 README table, versions meta, v0.1.0 run notes, browse head).
+* Fixed stale IDEA memory-map lines (own PML4 is done since P6).
+
 ### Added - 2026-10-11 (NaOS-FS reader)
 
 * NaOS File System v1 spec (in `kernel/fs/nafs.h` + `tools/mknafs.py`, kept in sync): 512B LE blocks, superblock (magic/version/root/checksum), 16×32B dir entries (case-sensitive names), contiguous files, nesting depth 8.
