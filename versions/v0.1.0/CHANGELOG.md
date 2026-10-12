@@ -467,6 +467,10 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Website: doc links (README/CHANGELOG/IDEA/LICENCE) now open an in-page popup served from GitHub raw (copy + open-on-GitHub inside, plain-link fallback without JS).
 * Fixed `browse.html` line gutter (missing `white-space:pre` ran all numbers onto one row).
 
+### Added - 2026-10-12 (activity page)
+
+* `activity.html`: live repo track — status counters (stars/forks/issues/last push), latest release with per-asset download counts, 20-commit feed with ages, manual refresh; partial-failure tolerant, rate-limit honest.
+
 ### Changed - 2026-10-12 (microscope pass: landing sections + numbers)
 
 * Landing page rebuilt around 4 new spec sections (boot sequence, memory map, syscall table, honest limits) + renumbered 02–09; dossier system kept (Archivo Black + Plex Mono, hairlines, amber).

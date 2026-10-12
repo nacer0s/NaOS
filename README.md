@@ -57,6 +57,7 @@ LICENCE.md           custom licence for the whole project (source-available, non
 SECURITY.md          security policy: supported versions + how to report
 index.html           project website (vanilla HTML/CSS/JS, offline-safe)
 browse.html          in-browser source viewer (GitHub API, no install)
+activity.html        live repo track: commits, releases, download counts
 404.html             website "lost sector" page
 versions/
   v0.1.0/            frozen v0.1.0 snapshot: Makefile, boot/, kernel/,
