@@ -53,6 +53,29 @@ section{padding:56px 0 0}
 .stat b{display:block;font-family:'Archivo',sans-serif;font-weight:800;font-size:1.8rem}
 .stat b em{font-style:normal;color:var(--accent)}
 .stat span{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.langbar{display:flex;height:14px;border:1px solid var(--line);margin-top:18px;overflow:hidden}
+.langbar i{display:block;height:100%}
+.langleg{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:12px;font-size:12px;color:var(--muted)}
+.langleg b{color:var(--text);font-weight:600}
+.dot{display:inline-block;width:9px;height:9px;margin-right:7px;vertical-align:baseline}
+.people{display:flex;gap:14px;margin-top:18px;flex-wrap:wrap}
+.person{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted)}
+.person img{width:30px;height:30px;border:1px solid var(--line)}
+.person b{color:var(--text);font-weight:600}
+.facts{margin-top:18px;font-size:12px;color:var(--muted)}
+.facts b{color:var(--text);font-weight:500}
+.tagrow{display:flex;flex-wrap:wrap;gap:8px}
+.tag{font-size:12.5px;border:1px solid var(--line);padding:4px 14px;color:var(--text)}
+a.tag:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+.thread{display:grid;grid-template-columns:64px 1fr auto;gap:18px;align-items:baseline;padding:11px 4px;border-bottom:1px solid var(--line);font-size:13px}
+.thread .id{color:var(--accent)}
+.thread .ti{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thread .ti a{color:var(--text)}
+.thread .ti a:hover{color:var(--accent)}
+.thread .kind{font-size:10px;letter-spacing:.14em;color:var(--muted);border:1px solid var(--line);padding:1px 8px;text-transform:uppercase}
+.bars{display:flex;align-items:flex-end;gap:3px;height:64px;border:1px solid var(--line);padding:10px 12px;background:var(--panel)}
+.bars i{flex:1;min-width:2px;background:var(--accent);opacity:.85;min-height:2px}
+.bars i.zero{background:var(--line);opacity:1}
 .rel{border:1px solid var(--line);background:var(--panel);padding:24px 28px;margin-top:18px}
 .rel h3{font-size:1.2rem;font-weight:800}
 .rel .meta{font-size:12px;color:var(--muted);margin:6px 0 14px}
@@ -127,6 +150,10 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
       <div class="stat"><b id="stIssues">—</b><span>open issues</span></div>
       <div class="stat"><b id="stPushed" style="font-size:1.1rem">—</b><span>last push</span></div>
     </div>
+    <div class="langbar reveal" id="langbar" hidden></div>
+    <div class="langleg reveal" id="langleg"></div>
+    <div class="people reveal" id="people"></div>
+    <div class="facts reveal" id="facts"></div>
     <div class="rel reveal" id="relBox" hidden>
       <h3 id="relName">—</h3>
       <div class="meta" id="relMeta">—</div>
@@ -137,7 +164,32 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
 
 <section>
   <div class="wrap">
-    <div class="sec-head"><span class="idx">02/</span><h2>Commits</h2></div>
+    <div class="sec-head"><span class="idx">02/</span><h2>Tags</h2></div>
+    <div class="tagrow reveal" id="tags"><span style="color:var(--muted);font-size:13px">loading…</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">03/</span><h2>Open threads</h2></div>
+    <p class="sec-sub" style="color:var(--muted);font-size:14px;margin-bottom:20px">Issues + PRs, newest activity first. Empty is fine — it means a quiet shop, not a dead one.</p>
+    <div class="reveal" id="threads"><div class="empty">loading…</div></div>
+    <div style="height:56px"></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">04/</span><h2>Rhythm</h2></div>
+    <p class="sec-sub" style="color:var(--muted);font-size:14px;margin-bottom:20px">Commits per week, last 52 weeks. Bars only — no vanity charts.</p>
+    <div class="bars reveal" id="bars"><span style="color:var(--muted);font-size:13px">loading…</span></div>
+    <div style="height:56px"></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">05/</span><h2>Commits</h2></div>
     <p class="sec-sub" style="color:var(--muted);font-size:14px;margin-bottom:20px">Latest 20 on <code>main</code> — sha · message · author · age.</p>
     <div class="feed reveal" id="feed"><div class="empty">loading commits…</div></div>
     <div style="height:70px"></div>
@@ -279,7 +331,140 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
       feed.appendChild(el('div', 'empty', e.message + ' — the code and releases above are static and fine.'));
     });
   }
-  function loadAll(){ loadStatus(); loadRelease(); loadCommits(); }
+  var LANG_COLORS = ['#FFB224', '#8E929B', '#5A5E66', '#3A3E45', '#2A2D33', '#23262C'];
+  function loadLangs(){
+    get(BASE + '/languages').then(function(j){
+      var tot = 0, names = [], i;
+      for(var k in j){ if(j.hasOwnProperty(k)){ tot += j[k]; names.push(k); } }
+      names.sort(function(a, b){ return j[b] - j[a]; });
+      var bar = document.getElementById('langbar');
+      var leg = document.getElementById('langleg');
+      bar.textContent = '';
+      leg.textContent = '';
+      if(!tot){ bar.hidden = true; return; }
+      bar.hidden = false;
+      names.slice(0, 6).forEach(function(nm, idx){
+        var pct = 100 * j[nm] / tot;
+        var seg = el('i', '');
+        seg.style.width = pct + '%';
+        seg.style.background = LANG_COLORS[idx % LANG_COLORS.length];
+        seg.title = nm + ' ' + pct.toFixed(1) + '%';
+        bar.appendChild(seg);
+        var li = el('span', '');
+        var dot = el('span', 'dot');
+        dot.style.background = LANG_COLORS[idx % LANG_COLORS.length];
+        li.appendChild(dot);
+        li.appendChild(el('b', '', nm + ' ' + pct.toFixed(1) + '%'));
+        leg.appendChild(li);
+      });
+    }).catch(function(){ document.getElementById('langbar').hidden = true; });
+  }
+  function loadPeopleFacts(){
+    get(BASE).then(function(j){
+      var ppl = document.getElementById('people');
+      ppl.textContent = '';
+      get(BASE + '/contributors?per_page=12').then(function(arr){
+        arr.forEach(function(c){
+          var row = el('a', 'person', '');
+          row.href = c.html_url;
+          row.target = '_blank';
+          row.rel = 'noopener';
+          var img = document.createElement('img');
+          img.src = c.avatar_url + '&s=60';
+          img.alt = '';
+          row.appendChild(img);
+          var tx = el('span', '');
+          tx.appendChild(el('b', '', c.login));
+          tx.appendChild(document.createTextNode(' · ' + c.contributions + ' commits'));
+          row.appendChild(tx);
+          ppl.appendChild(row);
+        });
+      }).catch(function(){});
+      var mb = (j.size / 1024).toFixed(1);
+      var fx = document.getElementById('facts');
+      fx.textContent = '';
+      fx.appendChild(document.createTextNode('born '));
+      fx.appendChild(el('b', '', (j.created_at || '').slice(0, 10)));
+      fx.appendChild(document.createTextNode(' · '));
+      fx.appendChild(el('b', '', mb + ' MB'));
+      fx.appendChild(document.createTextNode(' · licence '));
+      fx.appendChild(el('b', '', (j.license && j.license.spdx_id) || 'custom'));
+      fx.appendChild(document.createTextNode(' · branch '));
+      fx.appendChild(el('b', '', j.default_branch || 'main'));
+    }).catch(function(){});
+  }
+  function loadTags(){
+    get(BASE + '/tags?per_page=20').then(function(arr){
+      var w = document.getElementById('tags');
+      w.textContent = '';
+      if(!arr.length){ w.appendChild(el('span', '', 'no tags yet')); return; }
+      arr.forEach(function(t){
+        var a = el('a', 'tag', t.name);
+        a.href = 'https://github.com/nacer0s/NaOS/releases/tag/' + t.name;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        w.appendChild(a);
+      });
+    }).catch(function(){
+      var w = document.getElementById('tags');
+      w.textContent = '';
+      w.appendChild(el('span', '', 'could not load tags'));
+    });
+  }
+  function loadThreads(){
+    get(BASE + '/issues?state=open&per_page=20&sort=updated&direction=desc').then(function(arr){
+      var w = document.getElementById('threads');
+      w.textContent = '';
+      if(!arr.length){
+        var e = el('div', 'empty', '');
+        e.appendChild(document.createTextNode('nothing open. '));
+        var a = el('a', '', 'File the first issue →');
+        a.href = 'https://github.com/nacer0s/NaOS/issues/new';
+        a.target = '_blank';
+        a.rel = 'noopener';
+        e.appendChild(a);
+        w.appendChild(e);
+        return;
+      }
+      arr.forEach(function(it){
+        var row = el('div', 'thread');
+        row.appendChild(el('span', 'id', '#' + it.number));
+        var ti = el('span', 'ti');
+        var link = el('a', '', it.title || '(no title)');
+        link.href = it.html_url;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        ti.appendChild(link);
+        row.appendChild(ti);
+        row.appendChild(el('span', 'kind', it.pull_request ? 'pr' : 'issue'));
+        w.appendChild(row);
+      });
+    }).catch(function(){
+      var w = document.getElementById('threads');
+      w.textContent = '';
+      w.appendChild(el('div', 'empty', 'could not load threads'));
+    });
+  }
+  function loadRhythm(){
+    get(BASE + '/stats/commit_activity').then(function(arr){
+      if(!arr || !arr.length) throw 0;
+      var w = document.getElementById('bars');
+      w.textContent = '';
+      var max = 1, i;
+      for(i = 0; i < arr.length; i++) if(arr[i].total > max) max = arr[i].total;
+      arr.forEach(function(wk){
+        var b = el('i', wk.total ? '' : 'zero');
+        b.style.height = Math.max(4, Math.round(100 * wk.total / max)) + '%';
+        var d = new Date(wk.week * 1000);
+        b.title = 'w/c ' + d.toISOString().slice(0, 10) + ': ' + wk.total + ' commits';
+        w.appendChild(b);
+      });
+    }).catch(function(){
+      var w = document.getElementById('bars');
+      if(w) w.innerHTML = '<span style="color:var(--muted);font-size:13px">rhythm unavailable right now</span>';
+    });
+  }
+  function loadAll(){ loadStatus(); loadRelease(); loadCommits(); loadLangs(); loadPeopleFacts(); loadTags(); loadThreads(); loadRhythm(); }
   document.getElementById('refresh').addEventListener('click', loadAll);
   loadAll();
 
