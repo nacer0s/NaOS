@@ -206,6 +206,7 @@ uint32_t e1000_recv(void *buf, uint32_t cap) {
 int e1000_init(void) {
   uint8_t bus, slot, func;
   uint32_t bar_lo, bar_hi, cmd;
+  uint16_t did;
   uint64_t bar, p;
   uint32_t ral, rah, t;
   int i;
@@ -213,6 +214,15 @@ int e1000_init(void) {
   if (!pci_find_class(0x02, 0x00, &bus, &slot, &func)) return 0;
   kprintf("e1000: PCI %x:%x.%u\n", (unsigned)bus, (unsigned)slot,
           (unsigned)func);
+  /* Only the verified 8254x parts. Anything else (e.g. I219 on real
+   * boards) gets NO MMIO at all: poking the wrong chip turns bounded
+   * polls into forever on dead registers. Net is optional; boot first. */
+  did = pci_read16(bus, slot, func, 0x02);
+  if (did != 0x100Eu && did != 0x10D3u) {
+    kprintf("e1000: unsupported 8086:%x, net down (need 100E/10D3)\n",
+            (unsigned)did);
+    return 0;
+  }
   cmd = pci_read16(bus, slot, func, 0x04);
   pci_write16(bus, slot, func, 0x04, (uint16_t)(cmd | 0x06u));
   kprintf("e1000: pci cmd %x -> %x\n", (unsigned)cmd,

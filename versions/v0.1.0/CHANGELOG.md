@@ -525,3 +525,9 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Fix: fb pages identity-mapped at any address via the generic MMIO path (also uncacheable now, was write-back); fixed 2G window, its task entry, and the `pti==2` special case all removed.
 * Task spaces mirror every kernel MMIO mapping at create/fork time (supervisor-only, shared pages) so syscalls reach fb + devices — this also fixes program file I/O on NVMe-only disks (above-4G BAR under task tables faulted before).
 * Verified: q35 HDD (hello/fdemo/forkdemo incl. CoW), CD live boot + mount, NVMe-only boot + selftest + `fdemo`, zero faults, zero warnings.
+
+### Fixed - 2026-10-13 (real hardware: refuse unknown NICs)
+
+* Bare metal (Intel LAN at 0:1f.6, I219-class) hung inside `e1000_init`: 8254x-era register pokes at the wrong chip turn bounded MMIO polls into forever on dead registers. Driver now reads the PCI device ID first and drives only 0x100E/0x10D3 — anything else prints `unsupported … net down` and boot continues (net is optional; boot first). Rule going forward: never touch unknown hardware.
+* Same photo proved the vmm fix on silicon (XHCI 64-bit BAR 0x601d100000 mapped+read, ramdisk live, FAT mounted) and `acpi: no FACP` is graceful (poweroff unavailable there, nothing hangs).
+* Verified: e1000e (82574) still inits + net up on QEMU, zero warnings.
