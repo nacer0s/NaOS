@@ -549,6 +549,11 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 * The idle cursor blinked off the PIT tick counter (4Hz phases). On some real hardware the blink froze after boot (timer-rate quirks: too fast reads as solid, too slow as static), while QEMU always looked right. Fix: new `rtc_second()` (`kernel/drv/rtc.c/.h`, UIP-guarded single CMOS read, -1 when no clock) drives the blink with 1-second wall-clock phases; PIT toggle kept as fallback when no RTC. Typing/`time` verified unaffected.
 
+### Fixed - 2026-10-13 (live session: every command verified on ISO)
+
+* `nafs mount` had nothing to mount on a live boot: the ramdisk never shipped `/DATA.NAFS` (only the ESP had it). `tools/mkramdisk.sh` now copies `build/data.nafs` like `mkesp.sh` does.
+* Full command matrix verified on CD-only live boot (ramdisk): list/read/make-file/edit(.save round-trip)/make-folder/copy/move/rename/delete/go (incl. `..`, `/`, non-empty refusal), run (hello.elf/counter/ticker ELF+builtin), tasks/kill (slot reaped), nafs mount/list/read (NaFS stays case-sensitive by design: `/README.TXT`), settings/font (saved to RAM), `version > v.txt` redirect round-trip, fdemo file syscalls (`/HELLO.TXT`), dhcp/net/ping 4-4/dns (real WAN answer)/fetch (host server, 34B)/update check (0.1.0 vs 0.2.0 manifest)/update get ±sha (`sha OK`, files persist on RAM FAT)/beep/memory/test/print/about/pci (`disk driver: ramdisk`)/usb+nvme (graceful absent)/reboot (back to live shell)/shutdown (`no ACPI, halting`). `crash` intentionally untested live (verified pre-freeze; it reboots by design).
+
 ### Fixed - 2026-10-13 (real hardware round 4: framebuffer speed)
 
 * Bare metal scrolled one line per eternity: every scroll did a full-screen pixel `memmove` that READS the framebuffer back over PCIe (uncacheable mapping, no read combining) plus per-pixel writes — QEMU never notices (RAM-speed VRAM), real GPUs crawl. Fix: `vmm_init` programs PAT index 2 as write-combining and maps the fb with `vmm_map_wc` (drivers stay uncacheable via `vmm_map_mmio`; RAM stays write-back), and `fb_putc` no longer moves pixels at all — newlines advance the cursor, overflowing only into the canonical `repaint()` (already used by clear/font/PgUp/PgDn), which writes sequentially and never reads VRAM.

@@ -16,6 +16,11 @@ dd if=/dev/zero of=$RD bs=1M count=40 status=none
 mformat -i $RD -F -v NaOSRD ::
 mmd -i $RD ::/PROGS || true
 mcopy -i $RD $BUILD/progs/*.elf ::/PROGS/
+# NaOS-FS demo image (keep in sync with mkesp.sh): without it the `nafs`
+# command has nothing to mount on a live boot.
+if [ -f "$BUILD/data.nafs" ]; then
+  mcopy -i $RD $BUILD/data.nafs ::/DATA.NAFS
+fi
 # Same demo docs as the ESP (keep in sync with mkesp.sh).
 printf 'Hello from the NaOS disk!\r\nThis file lives on the FAT32 ESP image.\r\nTry: go naos, list, read README.TXT\r\n' > $BUILD/README.TXT
 mcopy -i $RD $BUILD/README.TXT ::/README.TXT
