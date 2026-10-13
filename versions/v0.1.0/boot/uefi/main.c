@@ -16,51 +16,97 @@ static const CHAR16 kKernelPath[] =
 static const CHAR16 kRamdiskPath[] =
   { '\\', 'N', 'a', 'O', 'S', '\\', 'R', 'A', 'M', 'D', 'I', 'S', 'K', '.', 'I', 'M', 'G', 0 };
 
-/* Live-boot image: pool-read the file, copy into <=1G LoaderData page runs
- * (kernel identity map), describe runs in bootinfo. Best effort: absence or
- * failure just means a normal disk boot (or diskless shell). Never dies. */
+/* Live-boot image: stream the file in 1MB pool chunks into <=1G
+ * LoaderData page runs (kernel identity map), described in bootinfo.
+ * One 40MB pool shot + one 40MB firmware Read fails on stingy real
+ * firmware; small sequential reads work everywhere. Best effort: absence
+ * or failure just means a normal disk boot (or diskless shell). */
 #define RD_RUNS 4
+#define RD_CHUNK (1024u * 1024u)
 static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
                          naos_bootinfo_t *bi) {
-  uint8_t *img = 0;
+  EFI_FILE_PROTOCOL *file = 0;
   UINTN size = 0, per, left;
-  uint8_t *src;
+  uint8_t *chunk = 0;
   EFI_STATUS st;
   uint64_t bases[RD_RUNS];
   uint32_t pages[RD_RUNS];
-  int i, n;
-  st = file_read_all(ImageHandle, bs, kRamdiskPath, &img, &size);
-  if (st != EFI_SUCCESS || !img || size == 0 || size > (64u * 1024u * 1024u) ||
-      (size & 511u)) {
+  UINTN shares[RD_RUNS];
+  int i, n, run;
+  UINTN run_len, run_off, done, co, got, want, m;
+
+  st = file_open_stream(ImageHandle, bs, kRamdiskPath, &file, &size);
+  if (st != EFI_SUCCESS || !file || size == 0 ||
+      size > (64u * 1024u * 1024u) || (size & 511u)) {
+    if (file) file->Close(file);
     co_puts("RAMDISK absent: disk boot\n");
     return;
   }
+  /* Destination runs first (page allocs, never pool). */
   per = (size + RD_RUNS - 1) / RD_RUNS;
   per = (per + 0xFFFULL) & ~0xFFFULL;
-  src = img;
   left = size;
   n = 0;
   for (i = 0; i < RD_RUNS && left > 0; i++) {
-    UINTN want = left < per ? left : per;
     EFI_PHYSICAL_ADDRESS addr = 0x40000000u; /* below 1G, kernel-mapped */
+    want = left < per ? left : per;
     UINTN npages = (want + 0xFFFULL) >> 12;
     st = bs->AllocatePages(AllocateMaxAddress, EfiLoaderData, npages, &addr);
     if (st != EFI_SUCCESS) break;
-    naos_memcpy((VOID *)(uintptr_t)addr, src, want);
-    if (want < per)
-      naos_memset((VOID *)(uintptr_t)(addr + want), 0, per - want);
     bases[n] = (uint64_t)addr;
     pages[n] = (uint32_t)npages;
+    shares[n] = want;
     n++;
-    src += want;
     left -= want;
   }
-  bs->FreePool(img);
   if (left != 0) {
     co_puts("RAMDISK alloc failed: disk boot\n");
+    file->Close(file);
     return; /* staged runs stay zeroed; leaked pages are LoaderData (safe) */
   }
-  for (i = 0; i < n; i++) {
+  st = bs->AllocatePool(EfiLoaderData, RD_CHUNK, (VOID **)&chunk);
+  if (st != EFI_SUCCESS || !chunk) {
+    co_puts("RAMDISK buffer failed: disk boot\n");
+    file->Close(file);
+    return;
+  }
+  /* Fill the runs sequentially, one firmware chunk at a time. */
+  run = 0;
+  run_len = (UINTN)pages[0] * 4096u;
+  run_off = 0;
+  done = 0;
+  while (done < size) {
+    want = size - done;
+    if (want > RD_CHUNK) want = RD_CHUNK;
+    got = want;
+    st = file->Read(file, &got, chunk);
+    if (st != EFI_SUCCESS || got != want) break;
+    co = 0;
+    while (co < got) {
+      UINTN room = run_len - run_off;
+      m = (got - co < room) ? (got - co) : room;
+      naos_memcpy((VOID *)(uintptr_t)(bases[run] + run_off), chunk + co, m);
+      co += m;
+      run_off += m;
+      if (run_off >= run_len && done + co < size) {
+        run++;
+        run_off = 0;
+        run_len = (UINTN)pages[run] * 4096u;
+      }
+    }
+    done += got;
+  }
+  bs->FreePool(chunk);
+  file->Close(file);
+  if (done != size) {
+    co_puts("RAMDISK read failed: disk boot\n");
+    return;
+  }
+  for (i = 0; i < n; i++) { /* zero each run's rounding tail */
+    UINTN cap = (UINTN)pages[i] * 4096u;
+    if (cap > shares[i])
+      naos_memset((VOID *)(uintptr_t)(bases[i] + shares[i]), 0,
+                  cap - shares[i]);
     bi->rd_base[i] = bases[i];
     bi->rd_pages[i] = pages[i];
   }

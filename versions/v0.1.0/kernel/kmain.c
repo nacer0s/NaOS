@@ -71,12 +71,17 @@ void kmain(naos_bootinfo_t *bi) {
   vmm_init(g_bi.fb_base, g_bi.fb_size);
   sched_init((uint64_t)(uintptr_t)stack_top);
   ramblk_init(g_bi.rd_base, g_bi.rd_pages); /* live image, maybe absent */
+  kprintf("ramdisk: %s\n", ramblk_ok() ? "live image staged" : "absent");
   blk_init(); /* AHCI, NVMe, probed ATA, then RAM-disk (needs PMM+VMM) */
-  if (fat_init() != 0 && ramblk_ok()) {
-    /* Chosen disk is foreign (e.g. a Windows volume): live session. */
-    kprintf("fat: falling back to live image\n");
-    blk_use_ramdisk();
-    fat_init();
+  if (fat_init() != 0) {
+    if (ramblk_ok()) {
+      /* Chosen disk is foreign (e.g. a Windows volume): live session. */
+      kprintf("fat: falling back to live image\n");
+      blk_use_ramdisk();
+      fat_init();
+    } else {
+      kprintf("fat: no usable disk (live image absent)\n");
+    }
   }
   usb_kbd_init(); /* XHCI HID keyboard if present (optional) */
   net_init();     /* E1000 + ARP/ICMP if present (optional) */

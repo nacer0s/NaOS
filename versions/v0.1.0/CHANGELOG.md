@@ -538,6 +538,13 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * USB on real iron: added the BIOS->OS ownership handoff (USBLEGCTLSTS, fully guarded — absent on QEMU, skipped silently) so port resets stop fighting firmware; tick-time rescans are quiet now (boot + manual `usb` stay verbose).
 * Verified: normal HDD boot unchanged (no fallback), corrupt-BPB boot falls back to ramdisk + FAT + shell, QEMU USB keyboard still enumerates with no takeover line, e1000e unaffected, zero warnings.
 
+### Fixed - 2026-10-13 (real hardware round 5: live image staging)
+
+* USB-stick boot reached the shell but `list` said `fat: not ready`: the bootloader staged the 40MB live image with one 40MB pool allocation + one 40MB firmware Read, which stingy real firmware pools refuse — so no live fallback existed (USB stick is invisible to ATA/AHCI, internal SSD is foreign). Fix: new `file_open_stream()` (`boot/uefi/file.c/.h`, open + size without the giant alloc; `file_read_all` reuses it, kernel load unchanged) and `load_ramdisk()` now allocates the page runs first, then streams the file in 1MB pool chunks (also fixes a latent memset-past-allocation when the size isn't a multiple of 4 runs). Each failure step prints its own `RAMDISK <reason>: disk boot` line.
+* Kernel prints `ramdisk: live image staged/absent` at boot, and when FAT fails with no live image it says `fat: no usable disk (live image absent)` instead of going quiet until `list`.
+* Cursor report checked: the idle blink works as designed (proven in QEMU — 48px bar, ~500ms period, only on the live tail; it rests while scrolled back with PgUp/PgDn until any key). If it ever looks static on iron, run `uptime` twice: frozen time means IRQ0 never fires on that box (report it), counting time means the bar is blinking at the prompt end.
+* Verified: HDD boot (ahci + 9 entries), CD-only boot (`blk: using ramdisk (live)` + 4 entries), CD + blank-disk boot (`fat: bad boot signature` → `falling back to live image` → 4 entries), zero warnings (`-Werror` both toolchains).
+
 ### Fixed - 2026-10-13 (real hardware round 4: framebuffer speed)
 
 * Bare metal scrolled one line per eternity: every scroll did a full-screen pixel `memmove` that READS the framebuffer back over PCIe (uncacheable mapping, no read combining) plus per-pixel writes — QEMU never notices (RAM-speed VRAM), real GPUs crawl. Fix: `vmm_init` programs PAT index 2 as write-combining and maps the fb with `vmm_map_wc` (drivers stay uncacheable via `vmm_map_mmio`; RAM stays write-back), and `fb_putc` no longer moves pixels at all — newlines advance the cursor, overflowing only into the canonical `repaint()` (already used by clear/font/PgUp/PgDn), which writes sequentially and never reads VRAM.
