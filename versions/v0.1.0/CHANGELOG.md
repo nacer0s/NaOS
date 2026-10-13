@@ -558,6 +558,10 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 * Clean `make clean && make iso` silently shipped a ramdisk WITHOUT `/DATA.NAFS`: `esp: all ramdisk nafsdata` builds the ramdisk before `data.nafs` exists, so the new copy block skipped. Fix: `ramdisk: nafsdata` (which already pulls `progs`). Incremental builds were unaffected (stale `data.nafs` present), which is why verification passed. Proven with a from-scratch rebuild + live `nafs mount/list`.
 
+### Fixed - 2026-10-13 (ramdisk staging reports its reason)
+
+* Real-hardware ISO boot showed `ramdisk: absent` with no reason (USB stick invisible to ATA, SSD foreign, no fallback). The bootloader now reports WHY through the handoff: new `rd_status/rd_done/rd_size` in `common/bootinfo.h` (0=file absent 1=ready 2=page-alloc 3=buffer 4=read-fail+counts); the kernel prints `ramdisk: absent (<reason>)`, with byte counts on read failure so a firmware size cliff shows its location. The chunk loop also rides through short reads now (progress counts; only hard errors/EOF stop). Verified: normal boot prints staged, file-less boot prints `absent (file not found)` end to end.
+
 ### Fixed - 2026-10-13 (real hardware round 4: framebuffer speed)
 
 * Bare metal scrolled one line per eternity: every scroll did a full-screen pixel `memmove` that READS the framebuffer back over PCIe (uncacheable mapping, no read combining) plus per-pixel writes — QEMU never notices (RAM-speed VRAM), real GPUs crawl. Fix: `vmm_init` programs PAT index 2 as write-combining and maps the fb with `vmm_map_wc` (drivers stay uncacheable via `vmm_map_mmio`; RAM stays write-back), and `fb_putc` no longer moves pixels at all — newlines advance the cursor, overflowing only into the canonical `repaint()` (already used by clear/font/PgUp/PgDn), which writes sequentially and never reads VRAM.

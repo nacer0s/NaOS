@@ -71,7 +71,20 @@ void kmain(naos_bootinfo_t *bi) {
   vmm_init(g_bi.fb_base, g_bi.fb_size);
   sched_init((uint64_t)(uintptr_t)stack_top);
   ramblk_init(g_bi.rd_base, g_bi.rd_pages); /* live image, maybe absent */
-  kprintf("ramdisk: %s\n", ramblk_ok() ? "live image staged" : "absent");
+  if (ramblk_ok()) {
+    kprintf("ramdisk: live image staged\n");
+  } else {
+    static const char *const why[] = {
+      "file not found", "ready?", "page alloc failed",
+      "chunk buffer failed", "read failed"
+    };
+    uint32_t st = (g_bi.rd_status < 5) ? g_bi.rd_status : 0;
+    if (st == 4)
+      kprintf("ramdisk: absent (%s at %u/%u bytes)\n", why[st],
+              (unsigned)g_bi.rd_done, (unsigned)g_bi.rd_size);
+    else
+      kprintf("ramdisk: absent (%s)\n", why[st]);
+  }
   blk_init(); /* AHCI, NVMe, probed ATA, then RAM-disk (needs PMM+VMM) */
   if (fat_init() != 0) {
     if (ramblk_ok()) {

@@ -25,9 +25,14 @@ typedef struct {
   uint32_t _reserved2;
   uint64_t rsdp;           /* ACPI RSDP address, 0 if unknown (P5+) */
   /* RAM disk (live boot): up to 4 page runs below 1G (EfiLoaderData).
-   * All zero = absent. Kernel mounts it only if no real disk works. */
+   * All zero = absent. Kernel mounts it only if no real disk works.
+   * rd_status says why when absent (1 = staged ok). */
   uint64_t rd_base[4];
   uint32_t rd_pages[4];
+  uint32_t rd_status; /* 0=file absent/open fail 1=ready 2=page alloc fail
+                       * 3=chunk buffer fail 4=read fail (see counts) */
+  uint32_t rd_done;   /* bytes staged before a read failure (status 4) */
+  uint32_t rd_size;   /* file bytes total (status 4: cliff location) */
 } naos_bootinfo_t;
 
 #endif /* NAOS_BOOTINFO_H */

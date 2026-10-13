@@ -39,6 +39,7 @@ static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
   if (st != EFI_SUCCESS || !file || size == 0 ||
       size > (64u * 1024u * 1024u) || (size & 511u)) {
     if (file) file->Close(file);
+    bi->rd_status = 0;
     co_puts("RAMDISK absent: disk boot\n");
     return;
   }
@@ -60,17 +61,20 @@ static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
     left -= want;
   }
   if (left != 0) {
+    bi->rd_status = 2;
     co_puts("RAMDISK alloc failed: disk boot\n");
     file->Close(file);
     return; /* staged runs stay zeroed; leaked pages are LoaderData (safe) */
   }
   st = bs->AllocatePool(EfiLoaderData, RD_CHUNK, (VOID **)&chunk);
   if (st != EFI_SUCCESS || !chunk) {
+    bi->rd_status = 3;
     co_puts("RAMDISK buffer failed: disk boot\n");
     file->Close(file);
     return;
   }
-  /* Fill the runs sequentially, one firmware chunk at a time. */
+  /* Fill the runs sequentially, one firmware chunk at a time. Short reads
+   * (got < want, success) count as progress; only hard errors or EOF stop. */
   run = 0;
   run_len = (UINTN)pages[0] * 4096u;
   run_off = 0;
@@ -80,7 +84,7 @@ static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
     if (want > RD_CHUNK) want = RD_CHUNK;
     got = want;
     st = file->Read(file, &got, chunk);
-    if (st != EFI_SUCCESS || got != want) break;
+    if (st != EFI_SUCCESS || got == 0 || got > want) break;
     co = 0;
     while (co < got) {
       UINTN room = run_len - run_off;
@@ -99,7 +103,14 @@ static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
   bs->FreePool(chunk);
   file->Close(file);
   if (done != size) {
-    co_puts("RAMDISK read failed: disk boot\n");
+    bi->rd_status = 4;
+    bi->rd_done = (uint32_t)done;
+    bi->rd_size = (uint32_t)size;
+    co_puts("RAMDISK read failed at ");
+    co_put_uint64((uint64_t)done);
+    co_puts("/");
+    co_put_uint64((uint64_t)size);
+    co_puts(": disk boot\n");
     return;
   }
   for (i = 0; i < n; i++) { /* zero each run's rounding tail */
@@ -110,6 +121,9 @@ static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
     bi->rd_base[i] = bases[i];
     bi->rd_pages[i] = pages[i];
   }
+  bi->rd_status = 1;
+  bi->rd_done = (uint32_t)size;
+  bi->rd_size = (uint32_t)size;
   co_puts("RAMDISK live image ready\n");
   serial_puts("ramdisk: ");
   serial_put_hex64(size);
