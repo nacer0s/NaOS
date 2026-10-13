@@ -1,8 +1,12 @@
 /* NaOS VMM. Boot space (2MB pages, P+RW+US):
  *   PML4[0] -> PDPT_LO: PDPT_LO[0] -> PD_LO maps 0..1G identity
- *   PML4[0] -> PDPT_LO: PDPT_LO[2] -> PD_FB maps 2G..3G window (framebuffer)
+ *   Framebuffer + PCI MMIO: identity-mapped at any canonical address via
+ *   per-(PML4,PDPT-index) page directories (uncacheable, supervisor-only).
  * Task spaces isolate: kernel supervisor-only except the .utext program
- * region; each task's user stack is mapped at USTACK_VA. */
+ * region; each task's user stack is mapped at USTACK_VA. Task spaces mirror
+ * the kernel's MMIO mappings (shared pages) so syscalls can reach the
+ * framebuffer and devices; all driver mappings happen at boot before any
+ * task spawns, so the snapshot at task-create time is complete. */
 #include "vmm.h"
 #include "pmm.h"
 #include "cow.h"
@@ -19,11 +23,12 @@
 
 extern char utext_start[], utext_end[];
 
+int vmm_map_mmio(uint64_t phys_2m); /* defined below; used by vmm_init */
+
 static uint64_t *g_pml4;
 static uint64_t g_cr3;
 static uint64_t *g_pdpt;
 static uint64_t *g_pd_lo;
-static uint64_t *g_pd_fb;
 static uint64_t *g_pd_lo_user; /* shared stripped copy for task spaces */
 
 static uint64_t *new_table(void) {
@@ -38,9 +43,8 @@ void vmm_init(uint64_t fb_base, uint64_t fb_size) {
   serial_puts("[vmm] building tables\n");
   uint64_t *pdpt = new_table();
   uint64_t *pd_lo = new_table();
-  uint64_t *pd_fb = new_table();
   g_pml4 = new_table();
-  if (!pdpt || !pd_lo || !pd_fb || !g_pml4) {
+  if (!pdpt || !pd_lo || !g_pml4) {
     serial_puts("[vmm] OUT OF MEMORY\n");
     for (;;) { __asm__ volatile ("hlt"); }
   }
@@ -50,22 +54,25 @@ void vmm_init(uint64_t fb_base, uint64_t fb_size) {
     pd_lo[i] = (i * P2M) | E_PRESENT | E_RW | E_US | E_PS;
   pdpt[0] = ((uint64_t)(uintptr_t)pd_lo) | E_PRESENT | E_RW | E_US;
 
-  /* Framebuffer window: map just the needed 2MB pages + 1 spare. */
+  g_pdpt = pdpt;
+  g_pd_lo = pd_lo;
+  g_cr3 = (uint64_t)(uintptr_t)g_pml4;
+
+  /* Framebuffer at identity (any address): one uncacheable 2MB page per
+   * covered page. Pages below 1G are already identity-mapped (firmware
+   * never places a real framebuffer there). */
   if (fb_base != 0 && fb_size != 0) {
     uint64_t start = fb_base & ~(P2M - 1);
     uint64_t end = (fb_base + fb_size + P2M - 1) & ~(P2M - 1);
     for (uint64_t a = start; a < end; a += P2M) {
-      uint64_t idx = ((a >> 21) & 0x1FFULL);
-      pd_fb[idx] = a | E_PRESENT | E_RW | E_US | E_PS;
+      if (a < 0x40000000ULL) continue;
+      if (vmm_map_mmio(a) != 0) {
+        serial_puts("[vmm] FB MAP FAILED\n");
+        for (;;) { __asm__ volatile ("hlt"); }
+      }
     }
-    pdpt[2] = ((uint64_t)(uintptr_t)pd_fb) | E_PRESENT | E_RW | E_US;
   }
   g_pml4[0] = ((uint64_t)(uintptr_t)pdpt) | E_PRESENT | E_RW | E_US;
-
-  g_pdpt = pdpt;
-  g_pd_lo = pd_lo;
-  g_pd_fb = pd_fb;
-  g_cr3 = (uint64_t)(uintptr_t)g_pml4;
   serial_puts("[vmm] switching CR3\n");
   __asm__ volatile ("mov %0, %%cr3" :: "r"(g_cr3) : "memory");
   serial_puts("[vmm] paging on own tables\n");
@@ -73,8 +80,8 @@ void vmm_init(uint64_t fb_base, uint64_t fb_size) {
 
 uint64_t vmm_cr3(void) { return g_cr3; }
 
-/* One-time: stripped PD_LO copy (supervisor except .utext) + supervisor-only
- * framebuffer. Flushes the TLB since live entries change flags. */
+/* One-time: stripped PD_LO copy (supervisor except .utext). Flushes the
+ * TLB since live entries change flags. */
 static int build_user_pd_lo(void) {
   uint64_t *cp = new_table();
   if (!cp) return 0;
@@ -85,7 +92,6 @@ static int build_user_pd_lo(void) {
     for (uint64_t a = s & ~(P2M - 1); a < e; a += P2M)
       cp[(a >> 21) & 0x1FFULL] |= E_US;
   }
-  for (uint64_t i = 0; i < 512; i++) g_pd_fb[i] &= ~E_US;
   g_pd_lo_user = cp;
   /* Flush stale TLB entries (flags changed under a live CR3). */
   __asm__ volatile ("mov %%cr3, %%rax; mov %%rax, %%cr3"
@@ -94,10 +100,10 @@ static int build_user_pd_lo(void) {
 }
 
 /* Map one 2MB MMIO window (phys 2M-aligned) uncacheable into the kernel
- * (boot) address space. Kernel-only: task spaces stay clean. Works at any
- * canonical address: below 4G the window hangs off PDPT_LO (reusing PD_LO
- * for index 0 and PD_FB for index 2); above 4G new PDPTs/PDs are grown
- * under the right PML4 entry (PCI 64-bit BARs live up there). */
+ * (boot) address space at identity. Kernel-only: task spaces stay clean
+ * unless mirrored by vmm_share_mmio below. Works at any canonical
+ * address: below 4G the window hangs off PDPT_LO, above 4G new PDPTs/PDs
+ * are grown under the right PML4 entry (PCI 64-bit BARs live up there). */
 static uint64_t *g_mmio_pdpt[512]; /* per-PML4-entry PDPTs, lazy */
 typedef struct {
   uint64_t pml4i, pti;
@@ -115,8 +121,6 @@ int vmm_map_mmio(uint64_t phys_2m) {
   pdi = (phys_2m >> 21) & 0x1FFULL;
   if (pml4i == 0 && pti == 0) {
     pd = g_pd_lo; /* 0-1G identity area */
-  } else if (pml4i == 0 && pti == 2) {
-    pd = g_pd_fb; /* 2G-3G framebuffer window */
   } else {
     if (pml4i == 0) {
       pdpt = g_pdpt;
@@ -155,6 +159,25 @@ int vmm_map_mmio(uint64_t phys_2m) {
   return 0;
 }
 
+/* Mirror every kernel MMIO mapping (framebuffer included) into a task
+ * space, supervisor-only, sharing the kernel's PDPT/PD pages (never freed
+ * with the task). All driver mappings happen at boot before any task
+ * spawns, so a snapshot at task-create time is complete. PML4[0] slots 0
+ * (user RAM) and 1 (ustacks) belong to the task: never overwrite them. */
+static void vmm_share_mmio(uint64_t *task_pml4, uint64_t *task_pdpt0) {
+  for (int i = 0; i < g_mmio_pds_used; i++) {
+    uint64_t pml4i = g_mmio_pds[i].pml4i;
+    uint64_t pti = g_mmio_pds[i].pti;
+    if (pml4i == 0) {
+      if (pti == 0 || pti == 1) continue;
+      task_pdpt0[pti] =
+          ((uint64_t)(uintptr_t)g_mmio_pds[i].pd) | E_PRESENT | E_RW;
+    } else {
+      task_pml4[pml4i] = g_pml4[pml4i]; /* shared PDPT, flags kept */
+    }
+  }
+}
+
 int vmm_create_space(uint64_t ustack_phys, uint32_t ustack_pages,
                      uint64_t *cr3_out, uint64_t tbl_out[4]) {
   if (!g_pd_lo_user && !build_user_pd_lo()) return 0;
@@ -167,13 +190,13 @@ int vmm_create_space(uint64_t ustack_phys, uint32_t ustack_pages,
   uint64_t *pt = new_table();
   if (!pml4 || !pdpt || !pd || !pt) return 0;
   pdpt[0] = ((uint64_t)(uintptr_t)g_pd_lo_user) | E_PRESENT | E_RW | E_US;
-  pdpt[2] = ((uint64_t)(uintptr_t)g_pd_fb) | E_PRESENT | E_RW | E_US;
   pd[0] = ((uint64_t)(uintptr_t)pt) | E_PRESENT | E_RW | E_US;
   for (uint32_t i = 0; i < ustack_pages; i++)
     pt[i] = (ustack_phys + (uint64_t)i * 0x1000ULL) |
             E_PRESENT | E_RW | E_US;
   pdpt[1] = ((uint64_t)(uintptr_t)pd) | E_PRESENT | E_RW | E_US;
   pml4[0] = ((uint64_t)(uintptr_t)pdpt) | E_PRESENT | E_RW | E_US;
+  vmm_share_mmio(pml4, pdpt);
   *cr3_out = (uint64_t)(uintptr_t)pml4;
   tbl_out[0] = (uint64_t)(uintptr_t)pml4;
   tbl_out[1] = (uint64_t)(uintptr_t)pdpt;
@@ -220,10 +243,10 @@ int vmm_fork_tables(uint64_t *cr3_out, uint64_t tbl_out[4]) {
     return 0;
   }
   pdpt[0] = ((uint64_t)(uintptr_t)g_pd_lo_user) | E_PRESENT | E_RW | E_US;
-  pdpt[2] = ((uint64_t)(uintptr_t)g_pd_fb) | E_PRESENT | E_RW | E_US;
   pd[0] = ((uint64_t)(uintptr_t)pt) | E_PRESENT | E_RW | E_US;
   pdpt[1] = ((uint64_t)(uintptr_t)pd) | E_PRESENT | E_RW | E_US;
   pml4[0] = ((uint64_t)(uintptr_t)pdpt) | E_PRESENT | E_RW | E_US;
+  vmm_share_mmio(pml4, pdpt);
   *cr3_out = (uint64_t)(uintptr_t)pml4;
   tbl_out[0] = (uint64_t)(uintptr_t)pml4;
   tbl_out[1] = (uint64_t)(uintptr_t)pdpt;

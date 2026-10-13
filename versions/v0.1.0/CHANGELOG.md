@@ -518,3 +518,10 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Vanilla HTML/CSS/JS site: root `index.html` (hero + live-typing boot terminal, features, commands, build), `versions/index.html` (release catalog), `versions/v0.1.0/index.html` (command reference, run guide, limits), `404.html` ("lost sector"), `browse.html` (GitHub-API source viewer — read every file online, no install). Clean directory URLs, scroll-reveal, back-to-top, copy buttons, social footers.
 * `LICENCE.md` replaced (MIT → custom source-available, non-commercial): free personal/learning use, no commercial use, no re-hosting as your own version, attribution to nacer0s required everywhere in public.
 * Root + v0.1.0 READMEs: download links (`NaOS.iso` release asset), website/viewer links, hardware limits, author + socials.
+
+### Fixed - 2026-10-12 (framebuffer mapping beyond 4G)
+
+* Real hardware (fb at 0x4000000000) hung after 3 lines: `vmm_init` mapped the fb to VA `2G+((phys>>21)&511)*2M`, identical to identity only inside [2G,3G) — every QEMU run. First post-CR3-switch print faulted silently (those 3 lines print pre-switch).
+* Fix: fb pages identity-mapped at any address via the generic MMIO path (also uncacheable now, was write-back); fixed 2G window, its task entry, and the `pti==2` special case all removed.
+* Task spaces mirror every kernel MMIO mapping at create/fork time (supervisor-only, shared pages) so syscalls reach fb + devices — this also fixes program file I/O on NVMe-only disks (above-4G BAR under task tables faulted before).
+* Verified: q35 HDD (hello/fdemo/forkdemo incl. CoW), CD live boot + mount, NVMe-only boot + selftest + `fdemo`, zero faults, zero warnings.
