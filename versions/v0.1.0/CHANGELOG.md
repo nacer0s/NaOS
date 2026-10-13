@@ -537,3 +537,9 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Foreign disk (e.g. Windows SSD/GPT) made `fat_init` fail with a cryptic sector-size message and left the shell diskless. Now: clearer `not a FAT volume` message, `g_alloc_hint` reset (stale hints across volumes would corrupt), and `fat_init` failure falls back to the staged live image (`blk_use_ramdisk`) — real machines boot into a full live session with files.
 * USB on real iron: added the BIOS->OS ownership handoff (USBLEGCTLSTS, fully guarded — absent on QEMU, skipped silently) so port resets stop fighting firmware; tick-time rescans are quiet now (boot + manual `usb` stay verbose).
 * Verified: normal HDD boot unchanged (no fallback), corrupt-BPB boot falls back to ramdisk + FAT + shell, QEMU USB keyboard still enumerates with no takeover line, e1000e unaffected, zero warnings.
+
+### Fixed - 2026-10-13 (real hardware round 4: framebuffer speed)
+
+* Bare metal scrolled one line per eternity: every scroll did a full-screen pixel `memmove` that READS the framebuffer back over PCIe (uncacheable mapping, no read combining) plus per-pixel writes — QEMU never notices (RAM-speed VRAM), real GPUs crawl. Fix: `vmm_init` programs PAT index 2 as write-combining and maps the fb with `vmm_map_wc` (drivers stay uncacheable via `vmm_map_mmio`; RAM stays write-back), and `fb_putc` no longer moves pixels at all — newlines advance the cursor, overflowing only into the canonical `repaint()` (already used by clear/font/PgUp/PgDn), which writes sequentially and never reads VRAM.
+* Typing/Enter/clear cost one glyph or one sequential fill; a full scroll costs one repaint (~30 glyph rows + bg fill, all WC writes). QEMU output pixel-identical (`help` + `clear` screendumps).
+* Verified: zero warnings (`-Werror`), `check.sh ALL OK`, QEMU `help` renders fully through multiple overflow repaints, `clear` clean, prompt live. Needs a real-hardware reflash photo to confirm the lag is gone.

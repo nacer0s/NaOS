@@ -19,8 +19,11 @@ int vmm_create_space(uint64_t ustack_phys, uint32_t ustack_pages,
                      uint64_t *cr3_out, uint64_t tbl_out[4]);
 /* Map one 4KB user page (va must be in the program window). */
 int vmm_map_user(uint64_t pt_phys, uint64_t va, uint64_t phys, int writable);
-/* Map one 2MB MMIO window (phys 2M-aligned, <4G) uncacheable, kernel-only. */
+/* Map one 2MB MMIO window (phys 2M-aligned, any address) uncacheable,
+ * kernel-only. */
 int vmm_map_mmio(uint64_t phys_2m);
+/* Same but write-combining (PAT2): framebuffer only. */
+int vmm_map_wc(uint64_t phys_2m);
 /* Fresh tables for a fork child (same shape as create_space, no user
  * mappings yet). Returns 1 ok; tbl gets PML4/PDPT/PD/PT phys addrs. */
 int vmm_fork_tables(uint64_t *cr3_out, uint64_t tbl_out[4]);

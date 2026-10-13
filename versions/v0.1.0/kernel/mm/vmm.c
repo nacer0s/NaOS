@@ -24,6 +24,7 @@
 extern char utext_start[], utext_end[];
 
 int vmm_map_mmio(uint64_t phys_2m); /* defined below; used by vmm_init */
+int vmm_map_wc(uint64_t phys_2m);   /* write-combining sibling (framebuffer) */
 
 static uint64_t *g_pml4;
 static uint64_t g_cr3;
@@ -58,15 +59,25 @@ void vmm_init(uint64_t fb_base, uint64_t fb_size) {
   g_pd_lo = pd_lo;
   g_cr3 = (uint64_t)(uintptr_t)g_pml4;
 
-  /* Framebuffer at identity (any address): one uncacheable 2MB page per
-   * covered page. Pages below 1G are already identity-mapped (firmware
+  /* PAT: reprogram index 2 as write-combining for the framebuffer.
+   * All other indices keep firmware defaults, so driver MMIO stays
+   * uncacheable and RAM stays write-back; index 2 is otherwise unused.
+   * Single CPU, no APs: one MSR write covers everything. */
+  {
+    uint32_t lo, hi;
+    __asm__ volatile ("rdmsr" : "=a" (lo), "=d" (hi) : "c" (0x277u));
+    lo = (lo & ~0x00FF0000u) | 0x00010000u; /* PAT2 = WC */
+    __asm__ volatile ("wrmsr" :: "a" (lo), "d" (hi), "c" (0x277u) : "memory");
+  }
+  /* Framebuffer at identity (any address): one write-combining 2MB page
+   * per covered page. Pages below 1G are already identity-mapped (firmware
    * never places a real framebuffer there). */
   if (fb_base != 0 && fb_size != 0) {
     uint64_t start = fb_base & ~(P2M - 1);
     uint64_t end = (fb_base + fb_size + P2M - 1) & ~(P2M - 1);
     for (uint64_t a = start; a < end; a += P2M) {
       if (a < 0x40000000ULL) continue;
-      if (vmm_map_mmio(a) != 0) {
+      if (vmm_map_wc(a) != 0) {
         serial_puts("[vmm] FB MAP FAILED\n");
         for (;;) { __asm__ volatile ("hlt"); }
       }
@@ -112,7 +123,7 @@ typedef struct {
 static mmio_pd_t g_mmio_pds[16];
 static int g_mmio_pds_used;
 
-int vmm_map_mmio(uint64_t phys_2m) {
+static int map_2m(uint64_t phys_2m, uint64_t flags) {
   uint64_t pml4i, pti, pdi, *pdpt, *pd = 0;
   int i;
   if ((phys_2m & 0x1FFFFFULL) || phys_2m >= 0x800000000000ULL) return -1;
@@ -153,10 +164,19 @@ int vmm_map_mmio(uint64_t phys_2m) {
       pd = g_mmio_pds[i].pd;
     }
   }
-  pd[pdi] = phys_2m | E_PRESENT | E_RW | E_PWT | E_PCD | E_PS;
+  pd[pdi] = phys_2m | flags;
   __asm__ volatile ("mov %%cr3, %%rax; mov %%rax, %%cr3"
                     ::: "rax", "memory");
   return 0;
+}
+
+/* Device registers: uncacheable. Framebuffer: write-combining (PAT2). */
+int vmm_map_mmio(uint64_t phys_2m) {
+  return map_2m(phys_2m, E_PRESENT | E_RW | E_PWT | E_PCD | E_PS);
+}
+
+int vmm_map_wc(uint64_t phys_2m) {
+  return map_2m(phys_2m, E_PRESENT | E_RW | E_PCD | E_PS);
 }
 
 /* Mirror every kernel MMIO mapping (framebuffer included) into a task

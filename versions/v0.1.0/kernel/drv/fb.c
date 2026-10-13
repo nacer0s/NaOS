@@ -171,27 +171,6 @@ static void con_commit(void) {
   }
 }
 
-static void scroll(void) {
-  uint32_t rows = nrows();
-  if (g_cy < rows) return;
-  /* Move screen up by one glyph row using 32-bit copies. */
-  uint32_t row_bytes = cell_h() * g_pitch;
-  uint8_t *dst = g_base;
-  uint8_t *src = g_base + row_bytes;
-  uint64_t n = (uint64_t)(rows - 1) * row_bytes;
-  naos_memmove(dst, src, (size_t)n);
-  /* Clear last row. */
-  uint8_t *last = g_base + (uint64_t)(rows - 1) * row_bytes;
-  for (uint64_t i = 0; i < row_bytes; i += 4) {
-    uint8_t r = (uint8_t)(g_bg >> 16), g = (uint8_t)(g_bg >> 8),
-            b = (uint8_t)g_bg;
-    if (g_fmt == 0) { last[i] = r; last[i+1] = g; last[i+2] = b; }
-    else            { last[i] = b; last[i+1] = g; last[i+2] = r; }
-    last[i+3] = 0;
-  }
-  g_cy = rows - 1;
-}
-
 static void draw_glyph(char c, uint32_t cx, uint32_t cy, uint32_t fg,
                        uint32_t bg) {
   uint8_t ch = ((uint8_t)c < 128) ? (uint8_t)c : (uint8_t)'?';
@@ -346,16 +325,21 @@ void fb_set_font(int f) {
 }
 
 void fb_putc(char c) {
-  uint32_t cols;
+  uint32_t cols, rows;
   if (!g_ok) return;
   fb_cursor_hide(); /* output always wins over the bar */
   cols = ncols();
+  rows = nrows();
   if (c == '\n') {
     con_commit();
     if (!con_view) {
+      /* Finished line is already on screen from per-char draws: just
+       * advance, repainting only when it would leave the visible area
+       * (the old pixel-memmove scroll read the framebuffer back over
+       * PCIe, which crawls on real hardware). */
       g_cx = 0;
-      g_cy++;
-      scroll();
+      if (g_cy + 1 >= rows) repaint();
+      else g_cy++;
     }
     return;
   }
@@ -368,8 +352,8 @@ void fb_putc(char c) {
     con_commit();
     if (!con_view) {
       g_cx = 0;
-      g_cy++;
-      scroll();
+      if (g_cy + 1 >= rows) repaint();
+      else g_cy++;
     }
   }
   if (con_pos < CON_COLS) {
@@ -378,9 +362,11 @@ void fb_putc(char c) {
   }
   con_pos++;
   if (!con_view) {
-    scroll();
-    draw_glyph(c, g_cx, g_cy, g_fg, g_bg);
-    g_cx++;
+    if (g_cy >= rows) repaint(); /* defensive: invariant says unreachable */
+    else {
+      draw_glyph(c, g_cx, g_cy, g_fg, g_bg);
+      g_cx++;
+    }
   }
 }
 
