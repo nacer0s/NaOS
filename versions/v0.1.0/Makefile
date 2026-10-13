@@ -156,7 +156,7 @@ $(BUILD):
 esp: all ramdisk nafsdata
 	./tools/mkesp.sh $(ESP_IMG)
 
-ramdisk: progs
+ramdisk: nafsdata
 	./tools/mkramdisk.sh
 
 # NaOS-FS demo image (PROGS + docs) for the `nafs` command.
