@@ -510,6 +510,35 @@ int xhci_init(void) {
           (unsigned)(hcs1 & 0xFFu));
   if (g_nports <= 0 || g_nports > 64) return 0;
   if (!(r32(g_op + OP_PAGESZ) & 1u)) return 0; /* need 4K pages */
+  /* BIOS->OS ownership handoff (USBLEGCTLSTS). Firmware owns USB on real
+   * machines; without this our port resets fight it and fail. Absent on
+   * QEMU (no legacy cap) -> skipped silently. xECP is a byte offset;
+   * chain Next pointers count DWORDs. Fully guarded: worst case we skip. */
+  {
+    uint32_t xecp = (hcc1 >> 16) & 0xFFFFu;
+    uint32_t ptr = xecp;
+    int guard = 0;
+    while (ptr != 0 && ptr < 0x1000 && guard++ < 16) {
+      uint32_t cap = r32(g_base + ptr);
+      uint32_t next = ((cap >> 8) & 0xFFu) * 4u; /* DWORDs -> bytes */
+      if ((cap & 0xFFu) == 1u) {                 /* USB Legacy Support */
+        uint32_t leg = cap;
+        if (leg & (1u << 16)) { /* BIOS owned: take over */
+          uint32_t t2;
+          w32(g_base + ptr, leg | (1u << 24));
+          t2 = 4000000;
+          while ((r32(g_base + ptr) & (1u << 16)) && t2--) { }
+          if (r32(g_base + ptr) & (1u << 16))
+            kprintf("xhci: BIOS would not release\n");
+          else
+            kprintf("xhci: took over from BIOS\n");
+        }
+        break;
+      }
+      if (next == 0) break;
+      ptr += next;
+    }
+  }
   /* Halt, reset, wait ready. */
   w32(g_op + OP_USBCMD, r32(g_op + OP_USBCMD) & ~CMD_RS);
   t = 1000000;

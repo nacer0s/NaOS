@@ -105,7 +105,7 @@ static int g_scan_fails;
 static uint8_t g_report[8];
 static uint8_t g_prev[8];
 
-static void usb_kbd_scan(void); /* defined below init */
+static void usb_kbd_scan(int quiet); /* defined below init */
 
 /* Diff one report against the previous: releases then presses. */
 static void handle_report(const uint8_t *r) {
@@ -184,12 +184,13 @@ int usb_kbd_init(void) {
   g_scan_cooldown = 0;
   g_scan_fails = 0;
   if (!xhci_init()) return 0;
-  usb_kbd_scan();
+  usb_kbd_scan(0);
   return g_ready;
 }
 
 /* The port/device half of init, reusable for hotplug rescan. */
-static int enum_port(int port) {
+#define ULOG(...) do { if (!quiet) kprintf(__VA_ARGS__); } while (0)
+static int enum_port(int port, int quiet) {
   uint8_t slot = 0;
   int speed, iface, ep, mps, ival;
   uint32_t total;
@@ -198,72 +199,72 @@ static int enum_port(int port) {
   uint8_t cfg9[9];
   uint8_t cfgfull[256];
   if (!xhci_port_device(port)) return 0;
-  kprintf("usb: device on port %d\n", port);
+  ULOG("usb: device on port %d\n", port);
   if (xhci_port_reset(port) != 0) {
-    kprintf("usb: port %d reset failed\n", port);
+    ULOG("usb: port %d reset failed\n", port);
     return 0;
   }
   speed = xhci_port_speed(port);
-  kprintf("usb: port %d speed %d\n", port, speed);
+  ULOG("usb: port %d speed %d\n", port, speed);
   if (speed == 0) return 0;
   if (xhci_enable_slot(&slot) != 0) {
-    kprintf("usb: port %d enable-slot failed\n", port);
+    ULOG("usb: port %d enable-slot failed\n", port);
     return 0;
   }
-  kprintf("usb: port %d slot %u\n", port, (unsigned)slot);
+  ULOG("usb: port %d slot %u\n", port, (unsigned)slot);
   if (xhci_address_device(slot, port, speed) != 0) {
-    kprintf("usb: port %d address failed cc=%d\n", port, xhci_last_cc());
+    ULOG("usb: port %d address failed cc=%d\n", port, xhci_last_cc());
     goto fail;
   }
   /* 8-byte probe first (learns bMaxPacketSize0), then the full one —
    * the same sequence firmware uses. */
   if (get_desc(slot, 1, 0, dev, 8) != 0) {
-    kprintf("usb: port %d dev-desc8 failed cc=%d\n", port,
+    ULOG("usb: port %d dev-desc8 failed cc=%d\n", port,
             xhci_last_cc());
     goto fail;
   }
   if (get_desc(slot, 1, 0, dev, 18) != 0) {
-    kprintf("usb: port %d dev-desc failed cc=%d\n", port, xhci_last_cc());
+    ULOG("usb: port %d dev-desc failed cc=%d\n", port, xhci_last_cc());
     goto fail;
   }
   if (get_desc(slot, 2, 0, cfg9, 9) != 0) {
-    kprintf("usb: port %d cfg-desc failed cc=%d\n", port, xhci_last_cc());
+    ULOG("usb: port %d cfg-desc failed cc=%d\n", port, xhci_last_cc());
     goto fail;
   }
   total = (uint32_t)cfg9[2] | ((uint32_t)cfg9[3] << 8);
   if (total < 9 || total > sizeof(cfgfull)) goto fail;
   if (get_desc(slot, 2, 0, cfgfull, (uint16_t)total) != 0) {
-    kprintf("usb: port %d full-cfg failed cc=%d\n", port, xhci_last_cc());
+    ULOG("usb: port %d full-cfg failed cc=%d\n", port, xhci_last_cc());
     goto fail;
   }
   if (find_kbd(cfgfull, total, &iface, &ep, &mps, &ival) != 0) {
-    kprintf("usb: port %d not a boot keyboard\n", port);
+    ULOG("usb: port %d not a boot keyboard\n", port);
     goto fail;
   }
-  kprintf("usb: port %d iface %d ep %d mps %d ival %d\n", port, iface, ep,
+  ULOG("usb: port %d iface %d ep %d mps %d ival %d\n", port, iface, ep,
           mps, ival);
   /* Boot protocol + idle + configure. */
   setup_pkt(s, 0x21, 0x0B, 0, (uint16_t)iface, 0); /* SET_PROTOCOL boot */
   if (xhci_control(slot, s, 0, 0, 0) != 0) {
-    kprintf("usb: port %d set-protocol failed cc=%d\n", port,
+    ULOG("usb: port %d set-protocol failed cc=%d\n", port,
             xhci_last_cc());
     goto fail;
   }
   setup_pkt(s, 0x21, 0x0A, 0, (uint16_t)iface, 0); /* SET_IDLE */
   if (xhci_control(slot, s, 0, 0, 0) != 0) {
-    kprintf("usb: port %d set-idle failed cc=%d\n", port, xhci_last_cc());
+    ULOG("usb: port %d set-idle failed cc=%d\n", port, xhci_last_cc());
     goto fail;
   }
   setup_pkt(s, 0x00, 0x09, cfg9[5], 0, 0); /* SET_CONFIGURATION */
   if (xhci_control(slot, s, 0, 0, 0) != 0) {
-    kprintf("usb: port %d set-config failed cc=%d\n", port,
+    ULOG("usb: port %d set-config failed cc=%d\n", port,
             xhci_last_cc());
     goto fail;
   }
   if (ep != 1) goto fail; /* boot keyboards use EP1 */
   if (xhci_open_ep(slot, 3) != 0) goto fail;
   if (xhci_configure_ep(slot, cfg9[5], iface, ep, 7, mps, ival) != 0) {
-    kprintf("usb: port %d configure failed cc=%d\n", port, xhci_last_cc());
+    ULOG("usb: port %d configure failed cc=%d\n", port, xhci_last_cc());
     goto fail;
   }
   g_slot = slot;
@@ -272,7 +273,7 @@ static int enum_port(int port) {
   if (xhci_int_in(slot, g_dci, g_report, 8) != 0) goto fail;
   g_ready = 1;
   g_scan_fails = 0;
-  kprintf("usb: HID keyboard on port %d (slot %u)\n", port,
+  ULOG("usb: HID keyboard on port %d (slot %u)\n", port,
           (unsigned)slot);
   return 1;
 fail:
@@ -280,11 +281,11 @@ fail:
   return 0;
 }
 
-static void usb_kbd_scan(void) {
+static void usb_kbd_scan(int quiet) {
   int nports, port;
   nports = xhci_port_count();
   for (port = 1; port <= nports; port++) {
-    if (enum_port(port)) return;
+    if (enum_port(port, quiet)) return;
   }
   g_scan_fails++;
 }
@@ -296,7 +297,7 @@ void usb_kbd_rescan(void) {
   }
   g_scan_fails = 0;
   g_scan_cooldown = 0;
-  usb_kbd_scan();
+  usb_kbd_scan(0);
   if (!g_ready) kprintf("usb: no keyboard found\n");
 }
 
@@ -311,7 +312,7 @@ void usb_kbd_poll(void) {
     }
     if (g_scan_fails >= 3) return;
     g_scan_cooldown = 500; /* ~5s at 100Hz */
-    usb_kbd_scan();
+    usb_kbd_scan(1);       /* quiet: tick rescans never chatter */
     return;
   }
   while (xhci_next_event(&ev)) {

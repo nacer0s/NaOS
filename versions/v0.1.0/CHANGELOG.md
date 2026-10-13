@@ -531,3 +531,9 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Bare metal (Intel LAN at 0:1f.6, I219-class) hung inside `e1000_init`: 8254x-era register pokes at the wrong chip turn bounded MMIO polls into forever on dead registers. Driver now reads the PCI device ID first and drives only 0x100E/0x10D3 — anything else prints `unsupported … net down` and boot continues (net is optional; boot first). Rule going forward: never touch unknown hardware.
 * Same photo proved the vmm fix on silicon (XHCI 64-bit BAR 0x601d100000 mapped+read, ramdisk live, FAT mounted) and `acpi: no FACP` is graceful (poweroff unavailable there, nothing hangs).
 * Verified: e1000e (82574) still inits + net up on QEMU, zero warnings.
+
+### Fixed - 2026-10-13 (real hardware round 3: live files + USB)
+
+* Foreign disk (e.g. Windows SSD/GPT) made `fat_init` fail with a cryptic sector-size message and left the shell diskless. Now: clearer `not a FAT volume` message, `g_alloc_hint` reset (stale hints across volumes would corrupt), and `fat_init` failure falls back to the staged live image (`blk_use_ramdisk`) — real machines boot into a full live session with files.
+* USB on real iron: added the BIOS->OS ownership handoff (USBLEGCTLSTS, fully guarded — absent on QEMU, skipped silently) so port resets stop fighting firmware; tick-time rescans are quiet now (boot + manual `usb` stay verbose).
+* Verified: normal HDD boot unchanged (no fallback), corrupt-BPB boot falls back to ramdisk + FAT + shell, QEMU USB keyboard still enumerates with no takeover line, e1000e unaffected, zero warnings.

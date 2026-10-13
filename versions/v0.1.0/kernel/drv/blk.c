@@ -36,6 +36,14 @@ const char *blk_name(void) {
   return "ata";
 }
 
+/* Switch to the staged live image (no-op when absent). For a failed
+ * filesystem mount: the disk is foreign, but the session gets files. */
+void blk_use_ramdisk(void) {
+  if (!ramblk_ok()) return;
+  g_drv = 3;
+  kprintf("blk: using ramdisk (live)\n");
+}
+
 int blk_read(uint32_t lba, uint8_t count, void *buf) {
   if (g_drv == 0) return ahci_read(lba, count, buf);
   if (g_drv == 1) return nvme_read(lba, count, buf);

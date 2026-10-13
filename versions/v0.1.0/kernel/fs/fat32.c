@@ -44,6 +44,7 @@ static uint32_t rd32(const uint8_t *p) {
 int fat_init(void) {
   static uint8_t sec[512];
   g_ok = 0;
+  g_alloc_hint = 2; /* stale hints from a previous volume would corrupt */
   if (blk_read(0, 1, sec) != 0) {
     kprintf("fat: cannot read boot sector\n");
     return -1;
@@ -54,7 +55,7 @@ int fat_init(void) {
   }
   uint16_t bps = rd16(sec + 11);
   if (bps != 512) {
-    kprintf("fat: unsupported sector size %u\n", (unsigned)bps);
+    kprintf("fat: not a FAT volume (sector size %u)\n", (unsigned)bps);
     return -1;
   }
   g_spc = sec[13];
