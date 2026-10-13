@@ -60,6 +60,19 @@ int rtc_read(rtc_time_t *out) {
   return 1;
 }
 
+int rtc_second(void) {
+  uint8_t s, b;
+  for (int i = 0; i < 100000; i++) {
+    if ((cmos(0x0A) & 0x80) == 0) break;
+  }
+  if (cmos(0x0A) & 0x80) return -1;
+  s = cmos(0x00);
+  b = cmos(0x0B);
+  if ((b & 0x04) == 0) s = bcd(s); /* BCD mode */
+  if (s > 59) return -1;
+  return (int)s;
+}
+
 static void put2(char *b, int v) {
   b[0] = (char)('0' + (v / 10) % 10);
   b[1] = (char)('0' + v % 10);

@@ -14,6 +14,9 @@ typedef struct {
 } rtc_time_t;
 
 int rtc_read(rtc_time_t *out); /* 1 ok, 0 = no clock */
+/* Cheap wall-clock second (0-59) for the cursor blink: UIP-guarded single
+ * register read, no struct, no retry. -1 = no clock (caller falls back). */
+int rtc_second(void);
 void rtc_format_date(const rtc_time_t *t, char *buf, int bufsz);
 void rtc_format_time(const rtc_time_t *t, char *buf, int bufsz);
 

@@ -545,6 +545,10 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Cursor report checked: the idle blink works as designed (proven in QEMU — 48px bar, ~500ms period, only on the live tail; it rests while scrolled back with PgUp/PgDn until any key). If it ever looks static on iron, run `uptime` twice: frozen time means IRQ0 never fires on that box (report it), counting time means the bar is blinking at the prompt end.
 * Verified: HDD boot (ahci + 9 entries), CD-only boot (`blk: using ramdisk (live)` + 4 entries), CD + blank-disk boot (`fat: bad boot signature` → `falling back to live image` → 4 entries), zero warnings (`-Werror` both toolchains).
 
+### Fixed - 2026-10-13 (cursor blink on wall clock)
+
+* The idle cursor blinked off the PIT tick counter (4Hz phases). On some real hardware the blink froze after boot (timer-rate quirks: too fast reads as solid, too slow as static), while QEMU always looked right. Fix: new `rtc_second()` (`kernel/drv/rtc.c/.h`, UIP-guarded single CMOS read, -1 when no clock) drives the blink with 1-second wall-clock phases; PIT toggle kept as fallback when no RTC. Typing/`time` verified unaffected.
+
 ### Fixed - 2026-10-13 (real hardware round 4: framebuffer speed)
 
 * Bare metal scrolled one line per eternity: every scroll did a full-screen pixel `memmove` that READS the framebuffer back over PCIe (uncacheable mapping, no read combining) plus per-pixel writes — QEMU never notices (RAM-speed VRAM), real GPUs crawl. Fix: `vmm_init` programs PAT index 2 as write-combining and maps the fb with `vmm_map_wc` (drivers stay uncacheable via `vmm_map_mmio`; RAM stays write-back), and `fb_putc` no longer moves pixels at all — newlines advance the cursor, overflowing only into the canonical `repaint()` (already used by clear/font/PgUp/PgDn), which writes sequentially and never reads VRAM.

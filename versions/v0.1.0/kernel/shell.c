@@ -4,6 +4,7 @@
 #include "drv/fb.h"
 #include "drv/pit.h"
 #include "drv/ps2_kbd.h"
+#include "drv/rtc.h"
 #include "lib/kprintf.h"
 #include "mm/pmm.h"
 #include "mm/kmalloc.h"
@@ -747,28 +748,23 @@ static void erase_chars(size_t n) {
 /* Read one line with history (no prompt). Returns length. */
 static size_t read_line(char *line) {
   static char saved[LINE_MAX];
-  static uint64_t cur_last;
-  static int cur_on;
   size_t n = 0;
   int nav = -1;
-  cur_on = 0;
   fb_cursor_hide();
   for (;;) {
     int c;
     if (kbd_empty()) {
-      /* Idle: blink the bar (~4Hz) while on the live tail. */
+      /* Idle: blink from the wall clock (1s phases), not the PIT — immune
+       * to timer-rate quirks. Only on the live tail; history view rests. */
       if (fb_is_live()) {
-        if (pit_ticks() - cur_last >= 25) {
-          cur_last = pit_ticks();
-          cur_on = !cur_on;
-          if (cur_on) fb_cursor_show();
-          else fb_cursor_hide();
-        }
+        int sec = rtc_second();
+        int phase = (sec >= 0) ? (sec & 1) : (int)((pit_ticks() / 50) & 1);
+        if (phase) fb_cursor_show();
+        else fb_cursor_hide();
       }
       __asm__ volatile ("hlt");
       continue;
     }
-    cur_on = 0;
     fb_cursor_hide();
     c = kbd_getc();
     if (c == KBD_PGUP) {
