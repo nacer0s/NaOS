@@ -1,4 +1,5 @@
 <img width="256" height="256" alt="NaOS" src="https://github.com/user-attachments/assets/0cf8ea3b-8547-4b68-904b-223caed76c57" />
+
 # NaOS
 
 A usable x86_64 UEFI operating system built **from scratch (0), in C** — no GRUB, no Limine, no gnu-efi, no prebuilt bootloader, kernel, or libc. Own `BOOTX64.EFI`, own `KERNEL.ELF`, own drivers, own stack.
