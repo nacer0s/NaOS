@@ -327,7 +327,9 @@ void fb_set_font(int f) {
 void fb_putc(char c) {
   uint32_t cols, rows;
   if (!g_ok) return;
-  fb_cursor_hide(); /* output always wins over the bar */
+  /* No hide-on-output: the bar keeps blinking through output. Sync instead:
+   * drawing a cell covers the bar, so just drop the flag; only a cursor
+   * MOVE without drawing (newline/CR/wrap) must erase stale pixels. */
   cols = ncols();
   rows = nrows();
   if (c == '\n') {
@@ -337,6 +339,7 @@ void fb_putc(char c) {
        * advance, repainting only when it would leave the visible area
        * (the old pixel-memmove scroll read the framebuffer back over
        * PCIe, which crawls on real hardware). */
+      fb_cursor_hide(); /* old cell would go stale */
       g_cx = 0;
       if (g_cy + 1 >= rows) repaint();
       else g_cy++;
@@ -345,12 +348,16 @@ void fb_putc(char c) {
   }
   if (c == '\r') {
     con_pos = 0;
-    if (!con_view) g_cx = 0;
+    if (!con_view) {
+      fb_cursor_hide();
+      g_cx = 0;
+    }
     return;
   }
   if (con_pos >= cols || con_pos >= CON_COLS) {
     con_commit();
     if (!con_view) {
+      fb_cursor_hide();
       g_cx = 0;
       if (g_cy + 1 >= rows) repaint();
       else g_cy++;
@@ -364,6 +371,7 @@ void fb_putc(char c) {
   if (!con_view) {
     if (g_cy >= rows) repaint(); /* defensive: invariant says unreachable */
     else {
+      cursor_on = 0; /* glyph below covers the bar cell fully */
       draw_glyph(c, g_cx, g_cy, g_fg, g_bg);
       g_cx++;
     }
@@ -377,7 +385,6 @@ void fb_puts(const char *s) {
 void fb_backspace(void) {
   uint32_t cols;
   if (!g_ok) return;
-  fb_cursor_hide();
   cols = ncols();
   if (con_pos == 0) return;
   con_pos--;
@@ -386,6 +393,7 @@ void fb_backspace(void) {
     if (g_cx == 0) return;
     g_cx--;
     if (g_cx >= cols) g_cx = cols - 1;
+    cursor_on = 0; /* space below covers the bar cell fully */
     draw_glyph(' ', g_cx, g_cy, g_fg, g_bg);
   }
 }

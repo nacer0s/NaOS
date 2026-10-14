@@ -750,7 +750,6 @@ static size_t read_line(char *line) {
   static char saved[LINE_MAX];
   size_t n = 0;
   int nav = -1;
-  fb_cursor_hide();
   for (;;) {
     int c;
     if (kbd_empty()) {
@@ -765,7 +764,6 @@ static size_t read_line(char *line) {
       __asm__ volatile ("hlt");
       continue;
     }
-    fb_cursor_hide();
     c = kbd_getc();
     if (c == KBD_PGUP) {
       fb_scroll_back();

@@ -549,6 +549,10 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 * The idle cursor blinked off the PIT tick counter (4Hz phases). On some real hardware the blink froze after boot (timer-rate quirks: too fast reads as solid, too slow as static), while QEMU always looked right. Fix: new `rtc_second()` (`kernel/drv/rtc.c/.h`, UIP-guarded single CMOS read, -1 when no clock) drives the blink with 1-second wall-clock phases; PIT toggle kept as fallback when no RTC. Typing/`time` verified unaffected.
 
+### Fixed - 2026-10-14 (cursor blinks through output, never goes stale)
+
+* Every output char hid the bar, so during any program output it looked dead (each char reset it to off). Now `fb_putc`/`fb_backspace` only sync the flag (the glyph repaints the cell and covers the bar); only a cursor MOVE without drawing (newline/CR/wrap) erases stale pixels. `read_line` no longer hides on entry/keypress. Invariant: flag set ⟺ bar pixels present (repaint/clear wipe + clear it). Verified: `help` text intact with no stale bars, backspace round-trip exact, RTC phases still flip 48px.
+
 ### Fixed - 2026-10-13 (live session: every command verified on ISO)
 
 * `nafs mount` had nothing to mount on a live boot: the ramdisk never shipped `/DATA.NAFS` (only the ESP had it). `tools/mkramdisk.sh` now copies `build/data.nafs` like `mkesp.sh` does.
