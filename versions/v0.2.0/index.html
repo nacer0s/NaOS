@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NaOS v0.2.0 — in development</title>
+<meta name="description" content="NaOS v0.2.0 (in development): TCP listen + server on top of the v0.1.0 shell, files, multitasking and networking.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230A0B0D'/%3E%3Crect x='5' y='5' width='22' height='22' fill='none' stroke='%23FFB224' stroke-width='2'/%3E%3Ctext x='9' y='22' font-family='monospace' font-size='12' fill='%23FFB224'%3E%3E_%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://kit.fontawesome.com/835a2ccfff.js" crossorigin="anonymous"></script>
+<style>
+:root{
+  --bg:#0A0B0D; --panel:#0F1114; --panel2:#14171C;
+  --line:#22262E; --text:#E9E6DF; --muted:#8E929B;
+  --accent:#FFB224; --accent-ink:#1A1206;
+  --max:1120px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1,h2,h3,.disp{font-family:'Archivo',system-ui,sans-serif}
+code,pre{font-family:'IBM Plex Mono',ui-monospace,monospace}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+::selection{background:var(--accent);color:var(--accent-ink)}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+nav{position:sticky;top:0;z-index:50;background:rgba(10,11,13,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:14px;height:60px}
+.mark{width:30px;height:30px;border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:13px;font-weight:600;flex:none}
+.brand{font-family:'Archivo',sans-serif;font-weight:800;font-size:1.1rem;color:var(--text)}
+a.brand:hover{text-decoration:none}
+.vtag{font-size:11px;color:var(--accent);border:1px solid rgba(255,178,36,.4);padding:1px 8px;white-space:nowrap}
+.links{margin-left:auto;display:flex;gap:24px;font-size:12px;letter-spacing:.12em}
+.links a{color:var(--muted);text-transform:uppercase}
+.links a:hover{color:var(--accent);text-decoration:none}
+.burger{display:none;margin-left:auto;background:none;border:1px solid var(--line);color:var(--text);padding:6px 10px;cursor:pointer}
+.page-head{padding:72px 0 44px;border-bottom:1px solid var(--line)}
+.status{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.16em;color:var(--accent);border:1px solid rgba(255,178,36,.4);padding:4px 12px;text-transform:uppercase}
+.status i{margin-right:8px}
+.page-head h1{font-size:clamp(2.6rem,6vw,4rem);font-weight:900;letter-spacing:-.015em;margin:18px 0 12px}
+.page-head h1 .amp{color:var(--accent)}
+.page-head p{color:var(--muted);font-size:14px;max-width:48rem}
+.micro{font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.micro b{color:var(--accent);font-weight:600}
+section{padding:60px 0 0}
+.sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:8px}
+.sec-head .idx{font-family:'Archivo',sans-serif;font-weight:900;font-size:1rem;color:var(--accent)}
+.sec-head h2{font-size:clamp(1.5rem,3vw,2rem);font-weight:800;letter-spacing:-.01em;text-transform:uppercase}
+.sec-sub{color:var(--muted);font-size:14px;margin-bottom:28px}
+.feats{border-top:1px solid var(--line)}
+.feat{display:grid;grid-template-columns:64px 240px 1fr;gap:20px;align-items:baseline;padding:18px 0;border-bottom:1px solid var(--line)}
+.feat .n{font-family:'Archivo',sans-serif;font-weight:800;font-size:1.25rem;color:var(--muted)}
+.feat h3{font-size:14px;font-weight:700}
+.feat h3 i{color:var(--accent);margin-right:9px}
+.feat p{font-size:13px;color:var(--muted)}
+.feat code{color:var(--text);font-size:12px}
+.ref{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--line)}
+.ref-group{padding:22px 24px;border-bottom:1px solid var(--line)}
+.ref-group:nth-child(odd){border-right:1px solid var(--line)}
+.ref-group:nth-last-child(-n+2){border-bottom:none}
+.ref-group h3{font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.ref-group h3 i{color:var(--accent);margin-right:8px}
+.cmd{display:flex;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.cmd:last-child{border-bottom:none}
+.cmd code{color:var(--accent);min-width:190px;font-size:12px;flex:none}
+.cmd span{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;gap:9px;font-weight:600;font-size:13px;letter-spacing:.04em;padding:12px 20px;border:1px solid transparent;cursor:pointer}
+.btn:hover{text-decoration:none}
+.btn-solid{background:var(--accent);color:var(--accent-ink)}
+.btn-solid:hover{background:#ffc44d}
+.btn-ghost{border-color:var(--line);color:var(--text);background:transparent}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+pre.code{background:#07080A;border:1px solid var(--line);padding:18px;font-size:13px;line-height:1.85;overflow-x:auto;color:#C9C6BD;margin-bottom:18px}
+pre.code .c{color:#5A5E66}
+pre.code .g{color:var(--accent)}
+.copy-row{display:flex;justify-content:flex-end;margin-bottom:8px}
+.copy{background:none;border:1px solid var(--line);color:var(--muted);font-size:12px;padding:5px 12px;cursor:pointer;font-family:inherit}
+.copy:hover{color:var(--accent);border-color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel);border:1px solid var(--line)}
+.tbl{overflow-x:auto;-webkit-overflow-scrolling:touch}
+th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--line)}
+th{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+tr:last-child td{border-bottom:none}
+td.mono{font-size:12px}
+.miles{border-left:1px solid var(--line);margin:4px 0 0 8px;padding-left:28px;display:grid;gap:20px}
+.mile{position:relative;font-size:13.5px}
+.mile::before{content:'';position:absolute;left:-33px;top:7px;width:9px;height:9px;background:var(--bg);border:2px solid var(--accent)}
+.mile b{font-weight:600}
+.mile span{color:var(--muted);font-size:12.5px}
+.limits{border:1px solid rgba(255,178,36,.35);border-left:3px solid var(--accent);background:rgba(255,178,36,.05);padding:20px 24px;font-size:13px;color:#D8C79A;margin-top:20px}
+.limits code{color:var(--accent)}
+footer{border-top:1px solid var(--line);padding:30px 0;margin-top:72px;color:var(--muted);font-size:12.5px}
+footer .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+footer .sp{margin-left:auto;display:flex;gap:20px}
+footer a{color:var(--muted)}
+footer a:hover{color:var(--accent);text-decoration:none}
+.socials{display:flex;gap:15px;font-size:15px}
+.socials a{color:var(--muted)}
+.socials a:hover{color:var(--accent)}
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:24px}
+.modal[hidden]{display:none}
+.modal-box{background:var(--panel);border:1px solid var(--line);max-width:760px;width:100%;max-height:84vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-bar{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:12px}
+.modal-bar .t{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-bar .sp{margin-left:auto;display:flex;gap:8px;align-items:center;flex:none}
+.modal pre{padding:20px;font-size:13px;line-height:1.7;overflow:auto;white-space:pre-wrap;word-break:break-word;color:#C9C6BD}
+.mbtn{background:none;border:1px solid var(--line);color:var(--muted);font-size:12px;padding:4px 12px;cursor:pointer;font-family:inherit}
+a.mbtn:hover{color:var(--accent);border-color:var(--accent);text-decoration:none}
+button.mbtn:hover{color:var(--accent);border-color:var(--accent)}
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .45s ease,transform .45s ease}
+.reveal.in{opacity:1;transform:none}
+a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+@media(max-width:900px){.feat{grid-template-columns:48px 1fr}.feat p{grid-column:2}.cmd code{min-width:150px}}
+@media(max-width:640px){
+.links{display:none;position:absolute;top:60px;left:0;right:0;background:var(--panel);flex-direction:column;padding:14px 24px 20px;gap:14px;border-bottom:1px solid var(--line)}
+.links.open{display:flex}.burger{display:block}
+.ref{grid-template-columns:1fr}.ref-group:nth-child(odd){border-right:none}.ref-group:nth-last-child(-n+2){border-bottom:1px solid var(--line)}.ref-group:last-child{border-bottom:none}
+.cmd{flex-direction:column;gap:2px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <span class="mark">&gt;_</span>
+    <a class="brand" href="../../home/">NaOS</a>
+    <span class="vtag">v0.2.0 · in development</span>
+    <div class="links" id="navLinks">
+      <a href="#highlights">Highlights</a>
+      <a href="#commands">Commands</a>
+      <a href="#run">Run</a>
+      <a href="README.md" data-raw="https://raw.githubusercontent.com/nacer0s/NaOS/main/versions/v0.2.0/README.md" data-gh="https://github.com/nacer0s/NaOS/blob/main/versions/v0.2.0/README.md" data-title="v0.2.0 README.md">README</a>
+      <a href="CHANGELOG.md" data-raw="https://raw.githubusercontent.com/nacer0s/NaOS/main/versions/v0.2.0/CHANGELOG.md" data-gh="https://github.com/nacer0s/NaOS/blob/main/versions/v0.2.0/CHANGELOG.md" data-title="v0.2.0 CHANGELOG.md">Changelog</a>
+    </div>
+    <button class="burger" id="burger" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+  </div>
+</nav>
+
+<div class="wrap page-head">
+  <span class="status"><i class="fa-solid fa-circle-notch"></i>in development · TCP listen + server</span>
+  <h1>NaOS v0.2.0<span class="amp">.</span></h1>
+  <p>The working version: everything in v0.1.0 plus a TCP server — listen, accept, serve files over HTTP. Unreleased: build it below, or grab the stable v0.1.0 binaries.</p>
+  <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
+    <a class="btn btn-solid" href="#run"><i class="fa-solid fa-arrow-right"></i>Build v0.2.0</a>
+    <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.iso"><i class="fa-solid fa-download"></i>Stable v0.1.0.iso</a>
+  </div>
+</div>
+
+<section id="highlights">
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">01/</span><h2>Highlights</h2></div>
+    <div class="feats" style="border-top:1px solid var(--line)">
+      <div class="feat"><span class="n">01</span><h3><i class="fa-solid fa-terminal"></i>39 plain-English commands</h3><p>Files, system, network, power — with history, scrollback, font sizes, output redirect and a themeable prompt.</p></div>
+      <div class="feat"><span class="n">02</span><h3><i class="fa-solid fa-hard-drive"></i>AHCI · NVMe · ATA + FAT32 + live RAM copy</h3><p>One block layer, writable FAT32, long filenames. Boots from SATA, NVMe — or straight off the ISO with files.</p></div>
+      <div class="feat"><span class="n">03</span><h3><i class="fa-solid fa-code-fork"></i>fork() with CoW</h3><p>Ring-3 programs, private address spaces, preemptive scheduler, copy-on-write fork, file syscalls.</p></div>
+      <div class="feat"><span class="n">04</span><h3><i class="fa-solid fa-network-wired"></i>TCP/IP + DHCP + DNS + updater</h3><p>E1000 driver, ARP/ping, UDP sockets, DHCP lease at boot, DNS, TCP client with HTTP <code>fetch</code> and hash-verified <code>update</code>.</p></div>
+      <div class="feat"><span class="n">05</span><h3><i class="fa-solid fa-keyboard"></i>PS/2 + USB HID</h3><p>Polled XHCI stack with hotplug rescan, classic PS/2 fallback, PC-speaker beeps.</p></div>
+      <div class="feat"><span class="n">06</span><h3><i class="fa-solid fa-compact-disc"></i>ISO export + auto-boot</h3><p>El Torito UEFI image, shell auto-boot fallback, Rufus/DD-mode guide for real hardware.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="commands">
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">02/</span><h2>Command reference</h2></div>
+    <p class="sec-sub">Everything the <code>NaOS&gt;</code> prompt understands in v0.2.0.</p>
+    <div class="ref">
+      <div class="ref-group"><h3><i class="fa-solid fa-folder-open"></i>Files</h3>
+        <div class="cmd"><code>list</code><span>list the current folder</span></div>
+        <div class="cmd"><code>read &lt;file&gt;</code><span>show a text file</span></div>
+        <div class="cmd"><code>go &lt;dir&gt;</code><span>change folder</span></div>
+        <div class="cmd"><code>make-folder / make-file</code><span>create folder / file</span></div>
+        <div class="cmd"><code>copy · move · rename</code><span>organize files and folders</span></div>
+        <div class="cmd"><code>edit &lt;file&gt;</code><span>built-in text editor</span></div>
+        <div class="cmd"><code>delete &lt;path&gt;</code><span>remove files and folders</span></div>
+        <div class="cmd"><code>nafs mount/list/read</code><span>browse NaOS-FS images</span></div>
+      </div>
+      <div class="ref-group"><h3><i class="fa-solid fa-gears"></i>System</h3>
+        <div class="cmd"><code>help · version · about</code><span>commands · build date · developer</span></div>
+        <div class="cmd"><code>run &lt;program&gt;</code><span>run a disk ELF program</span></div>
+        <div class="cmd"><code>tasks · kill &lt;id&gt;</code><span>process list · stop a task</span></div>
+        <div class="cmd"><code>time · date · uptime</code><span>CMOS clock readings</span></div>
+        <div class="cmd"><code>memory · test</code><span>memory stats · self-tests</span></div>
+        <div class="cmd"><code>pci · settings</code><span>PCI scan · prompt/theme view</span></div>
+        <div class="cmd"><code>clear · print · beep</code><span>screen · echo text · speaker</span></div>
+        <div class="cmd"><code>font [small|normal|big|3|4]</code><span>console size, saved</span></div>
+        <div class="cmd"><code>PgUp · PgDn</code><span>scroll the screen back and forth</span></div>
+      </div>
+      <div class="ref-group"><h3><i class="fa-solid fa-network-wired"></i>Network</h3>
+        <div class="cmd"><code>net</code><span>MAC / IP / link / counters</span></div>
+        <div class="cmd"><code>dhcp</code><span>lease an address (proves UDP)</span></div>
+        <div class="cmd"><code>ping &lt;ip&gt;</code><span>ICMP echo, 4 packets</span></div>
+        <div class="cmd"><code>fetch &lt;ip&gt; &lt;port&gt; &lt;path&gt;</code><span>HTTP GET over TCP</span></div>
+        <div class="cmd"><code>dns &lt;name&gt;</code><span>resolve a hostname</span></div>
+        <div class="cmd"><code>update check/get</code><span>manifest compare + verified downloads</span></div>
+      </div>
+      <div class="ref-group"><h3><i class="fa-solid fa-plug"></i>Hardware &amp; power</h3>
+        <div class="cmd"><code>usb</code><span>rescan for a USB keyboard</span></div>
+        <div class="cmd"><code>nvme</code><span>controller info + self-test</span></div>
+        <div class="cmd"><code>reboot · shutdown</code><span>8042 reset · ACPI power-off</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="run">
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">03/</span><h2>Run it</h2></div>
+    <p class="sec-sub">Inside this folder. One-time host setup is in the <a href="README.md" data-raw="https://raw.githubusercontent.com/nacer0s/NaOS/main/versions/v0.2.0/README.md" data-gh="https://github.com/nacer0s/NaOS/blob/main/versions/v0.2.0/README.md" data-title="v0.2.0 README.md">README</a>. Artifact sizes: BOOTX64.EFI ~17 KB · KERNEL.ELF ~155 KB · DATA.NAFS 61,952 B · ESP 64MiB · ISO ~64.6 MiB.</p>
+    <div class="copy-row"><button class="copy" data-copy="runCmd"><i class="fa-regular fa-copy"></i> copy</button></div>
+<pre class="code" id="runCmd">export PATH=/opt/cross/bin:$PATH
+./tools/check.sh   <span class="c"># verify tools + OVMF</span>
+make all &amp;&amp; make esp
+make run           <span class="g"># → NaOS&gt; shell</span>
+make run-iso       <span class="c"># needs xorriso: boot the ISO itself</span></pre>
+    <div class="sec-head" style="margin-top:36px"><span class="idx">04/</span><h2>Verified requirements</h2></div>
+    <div class="tbl">
+    <table>
+      <tr><th>Tool</th><th>Version</th><th>Purpose</th></tr>
+      <tr><td>QEMU + OVMF</td><td class="mono">11.1.0</td><td>emulator + UEFI firmware</td></tr>
+      <tr><td class="mono">x86_64-elf-gcc + ld</td><td class="mono">16.2.0 / 2.47</td><td>kernel (via /opt/cross)</td></tr>
+      <tr><td class="mono">x86_64-w64-mingw32-gcc</td><td class="mono">16.2.0</td><td>bootloader (PE+)</td></tr>
+      <tr><td>NASM · Make · mtools · Python</td><td class="mono">3.02 · 4.4.1 · 4.0.49 · 3.14.8</td><td>stubs · build · FAT image · font + scripts</td></tr>
+    </table>
+    </div>
+    <div class="limits"><i class="fa-solid fa-triangle-exclamation"></i>&nbsp;<b>Honest limits:</b> TCP client only (no listen yet) · NVMe needs 512B namespaces · CD/USB boot is a live RAM session (files work, writes vanish on reboot; give the VM ≥256MB) · UEFI-only, Secure Boot off.</div>
+  </div>
+</section>
+
+<section id="road">
+  <div class="wrap">
+    <div class="sec-head"><span class="idx">05/</span><h2>How v0.2.0 is built</h2></div>
+    <div class="miles">
+      <div class="mile"><b>Boot + shell</b> <span>— custom BOOTX64.EFI, GOP console, NaOS&gt; prompt</span></div>
+      <div class="mile"><b>Memory</b> <span>— own PML4 paging, PMM, kmalloc heap</span></div>
+      <div class="mile"><b>Files</b> <span>— ATA → AHCI DMA → writable FAT32 + long names</span></div>
+      <div class="mile"><b>Multitasking</b> <span>— ring-3 tasks, syscalls, fork() with copy-on-write</span></div>
+      <div class="mile"><b>Hardware</b> <span>— PCI scan, XHCI USB keyboard, PC speaker, ACPI power</span></div>
+      <div class="mile"><b>Network</b> <span>— E1000, ARP/ping, UDP/DHCP/DNS, TCP client + updater</span></div>
+      <div class="mile"><b>NVMe + live ISO</b> <span>— polled driver in the block layer; live RAM copy of the boot volume, boots anywhere</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>NaOS v0.2.0 · © <span id="year"></span> nacer0s. All rights reserved.</span>
+    <span class="socials">
+      <a href="https://github.com/nacer0s" aria-label="GitHub"><i class="fa-brands fa-github"></i></a>
+      <a href="https://nacer0s.com" aria-label="Website"><i class="fa-solid fa-globe"></i></a>
+      <a href="https://x.com/nacer0s" aria-label="X"><i class="fa-brands fa-x-twitter"></i></a>
+      <a href="https://instagram.com/nacer0s" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+      <a href="https://tiktok.com/@nacer0s" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>
+      <a href="https://t.me/nacer0s" aria-label="Telegram"><i class="fa-brands fa-telegram"></i></a>
+    </span>
+    <span class="sp"><a href="../../home/">Home</a><a href="../">Versions</a><a href="README.md" data-raw="https://raw.githubusercontent.com/nacer0s/NaOS/main/versions/v0.2.0/README.md" data-gh="https://github.com/nacer0s/NaOS/blob/main/versions/v0.2.0/README.md" data-title="v0.2.0 README.md">README</a><a href="CHANGELOG.md" data-raw="https://raw.githubusercontent.com/nacer0s/NaOS/main/versions/v0.2.0/CHANGELOG.md" data-gh="https://github.com/nacer0s/NaOS/blob/main/versions/v0.2.0/CHANGELOG.md" data-title="v0.2.0 CHANGELOG.md">Changelog</a></span>
+  </div>
+</footer>
+
+<div class="modal" id="docModal" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-label="File preview">
+    <div class="modal-bar"><span class="t" id="docTitle"></span>
+      <span class="sp"><button class="mbtn" id="docCopy">copy</button><a class="mbtn" id="docGh" href="#">GitHub</a><button class="mbtn" id="docClose">close</button></span>
+    </div>
+    <pre id="docBody">loading…</pre>
+  </div>
+</div>
+
+<script>
+(function(){
+  document.getElementById('year').textContent = new Date().getFullYear();
+  var b = document.getElementById('burger'), l = document.getElementById('navLinks');
+  b.addEventListener('click', function(){ l.classList.toggle('open'); });
+  document.querySelectorAll('.feat,.ref-group,.mile').forEach(function(el){ el.classList.add('reveal'); });
+  if('IntersectionObserver' in window && !matchMedia('(prefers-reduced-motion: reduce)').matches){
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, {threshold:.1});
+    document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+  } else {
+    document.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('in'); });
+  }
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var el = document.getElementById(btn.getAttribute('data-copy'));
+      var t = el ? el.innerText : '';
+      if(navigator.clipboard) navigator.clipboard.writeText(t).then(function(){
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> copied';
+        setTimeout(function(){ btn.innerHTML = '<i class="fa-regular fa-copy"></i> copy'; }, 1500);
+      });
+    });
+  });
+  var m = document.getElementById('docModal');
+  var title = document.getElementById('docTitle');
+  var body = document.getElementById('docBody');
+  var gh = document.getElementById('docGh');
+  var copyBtn = document.getElementById('docCopy');
+  var current = '';
+  function close(){ m.hidden = true; }
+  document.getElementById('docClose').addEventListener('click', close);
+  m.addEventListener('click', function(e){ if(e.target === m) close(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
+  copyBtn.addEventListener('click', function(){
+    if(!current || !navigator.clipboard) return;
+    navigator.clipboard.writeText(current).then(function(){
+      copyBtn.textContent = 'copied';
+      setTimeout(function(){ copyBtn.textContent = 'copy'; }, 1500);
+    });
+  });
+  document.querySelectorAll('a[data-raw]').forEach(function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      title.textContent = a.getAttribute('data-title') || 'file';
+      gh.href = a.getAttribute('data-gh') || a.href;
+      body.textContent = 'loading…';
+      current = '';
+      m.hidden = false;
+      fetch(a.getAttribute('data-raw')).then(function(r){
+        if(!r.ok) throw 0;
+        return r.text();
+      }).then(function(t){
+        if(t.length > 200000) t = t.slice(0, 200000) + '\n…(truncated)';
+        current = t;
+        body.textContent = t;
+      }).catch(function(){
+        body.textContent = 'Could not load (offline?). Open on GitHub instead.';
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
