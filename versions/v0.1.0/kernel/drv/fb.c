@@ -9,6 +9,8 @@
  * switches and clears repaint from the ring. Small/normal/big/custom fonts
  * share one blitter over two bitmap tables (12x24 + 8x16). */
 #include "fb.h"
+#include "pit.h"
+#include "rtc.h"
 #include "font_bitmap.h"         /* generated: build/font_bitmap.h */
 #include "font_bitmap_small.h"   /* generated: build/font_bitmap_small.h */
 #include "../../common/cstring.h"
@@ -47,7 +49,6 @@ static char con_cur[CON_COLS];
 static uint32_t con_cur_len, con_pos;
 static uint32_t con_view;   /* lines back from live (0 = live) */
 static uint32_t con_ftotal; /* frozen total while scrolled */
-static int cursor_on;       /* vertical bar currently drawn */
 
 /* The bitmap header layouts match the caches exactly; copy them in. */
 static void font_load(void) {
@@ -143,9 +144,9 @@ void fb_clear(uint32_t rgb) {
   con_cur_len = 0;
   con_pos = 0;
   con_view = 0;
-  cursor_on = 0;
   paint_bg();
   g_cx = 0; g_cy = 0;
+  caret_refresh(); /* fresh prompt + live bar, no waiting for a toggle */
 }
 
 void fb_set_colors(uint32_t fg, uint32_t bg) {
@@ -237,16 +238,33 @@ static void cursor_rect(uint32_t rgb) {
       put_pixel(g_cx * cell_w() + x, g_cy * cell_h() + y, rgb);
 }
 
-void fb_cursor_show(void) {
-  if (!g_ok || cursor_on) return;
-  cursor_rect(g_fg);
-  cursor_on = 1;
+/* Blink phase ladder: exact PIT (500ms) while it advances (rechecked each
+ * RTC second), else RTC seconds, else the always-running TSC. */
+static int cursor_phase(void) {
+  static int sec_mark = -1;
+  static uint64_t tk_mark = 0;
+  static int pit_ok = 1;
+  int sec = rtc_second();
+  uint64_t tk = pit_ticks();
+  if (sec < 0) return (int)((pit_tsc() >> 31) & 1u);
+  if (sec != sec_mark) {
+    sec_mark = sec;
+    pit_ok = (tk != tk_mark);
+    tk_mark = tk;
+  }
+  if (pit_ok) return (int)((tk / 50) & 1u);
+  return sec & 1;
 }
 
-void fb_cursor_hide(void) {
-  if (!g_ok || !cursor_on) return;
-  cursor_rect(g_bg);
-  cursor_on = 0;
+void caret_refresh(void) {
+  char ch;
+  if (!g_ok || !fb_is_live()) return;
+  if (g_cx >= CON_COLS || g_cy >= nrows()) return; /* defensive */
+  /* Caret cell content comes from the input line (or blank past its end):
+   * the bar can never disagree with the text, because both derive here. */
+  ch = (g_cx < con_cur_len) ? con_cur[g_cx] : ' ';
+  draw_glyph(ch, g_cx, g_cy, g_fg, g_bg);
+  if (cursor_phase()) cursor_rect(g_fg);
 }
 
 static void repaint(void) {
@@ -256,7 +274,6 @@ static void repaint(void) {
   uint32_t base = con_view ? con_ftotal : con_total;
   uint32_t end = con_view ? (base - con_view) : base;
   uint32_t first, count;
-  cursor_on = 0; /* paint_bg wipes it */
   paint_bg();
   if (!con_view) {
     /* Live: last rows-1 committed lines, input line on the bottom row. */
@@ -281,6 +298,7 @@ static void repaint(void) {
     g_cx = 0;
     g_cy = rows - 1;
   }
+  caret_refresh(); /* live tail gets its bar; frozen view stays clean */
 }
 
 void fb_scroll_back(void) {
@@ -327,40 +345,56 @@ void fb_set_font(int f) {
 void fb_putc(char c) {
   uint32_t cols, rows;
   if (!g_ok) return;
-  /* No hide-on-output: the bar keeps blinking through output. Sync instead:
-   * drawing a cell covers the bar, so just drop the flag; only a cursor
-   * MOVE without drawing (newline/CR/wrap) must erase stale pixels. */
+  /* The bar is stateless (caret_refresh derives it from the ring), so
+   * output never hides anything: drawing a cell covers it, and moves
+   * repaint the old cell from ring state before relocating. */
   cols = ncols();
   rows = nrows();
   if (c == '\n') {
     con_commit();
     if (!con_view) {
-      /* Finished line is already on screen from per-char draws: just
-       * advance, repainting only when it would leave the visible area
-       * (the old pixel-memmove scroll read the framebuffer back over
-       * PCIe, which crawls on real hardware). */
-      fb_cursor_hide(); /* old cell would go stale */
+      /* Finished line is already on screen from per-char draws: repaint
+       * the old caret cell from the just-committed line, then advance —
+       * repainting only on overflow (the old pixel-memmove scroll read
+       * the framebuffer back over PCIe, which crawls on real hardware). */
+      if (g_cy + 1 < rows) {
+        uint32_t idx = (con_total - 1) % CON_LINES;
+        char ch = (g_cx < con_len[idx]) ? con_text[idx][g_cx] : ' ';
+        draw_glyph(ch, g_cx, g_cy, con_fg[idx], con_bg[idx]);
+      }
       g_cx = 0;
       if (g_cy + 1 >= rows) repaint();
-      else g_cy++;
+      else {
+        g_cy++;
+        caret_refresh();
+      }
     }
     return;
   }
   if (c == '\r') {
     con_pos = 0;
     if (!con_view) {
-      fb_cursor_hide();
+      char ch = (g_cx < con_cur_len) ? con_cur[g_cx] : ' ';
+      draw_glyph(ch, g_cx, g_cy, g_fg, g_bg);
       g_cx = 0;
+      caret_refresh();
     }
     return;
   }
   if (con_pos >= cols || con_pos >= CON_COLS) {
     con_commit();
     if (!con_view) {
-      fb_cursor_hide();
+      if (g_cy + 1 < rows) {
+        uint32_t idx = (con_total - 1) % CON_LINES;
+        char ch = (g_cx < con_len[idx]) ? con_text[idx][g_cx] : ' ';
+        draw_glyph(ch, g_cx, g_cy, con_fg[idx], con_bg[idx]);
+      }
       g_cx = 0;
       if (g_cy + 1 >= rows) repaint();
-      else g_cy++;
+      else {
+        g_cy++;
+        caret_refresh();
+      }
     }
   }
   if (con_pos < CON_COLS) {
@@ -371,9 +405,9 @@ void fb_putc(char c) {
   if (!con_view) {
     if (g_cy >= rows) repaint(); /* defensive: invariant says unreachable */
     else {
-      cursor_on = 0; /* glyph below covers the bar cell fully */
       draw_glyph(c, g_cx, g_cy, g_fg, g_bg);
       g_cx++;
+      caret_refresh();
     }
   }
 }
@@ -391,11 +425,13 @@ void fb_backspace(void) {
   if (con_cur_len > 0) con_cur_len--;
   if (!con_view) {
     if (g_cx == 0) return;
-    fb_cursor_hide(); /* erase at the old cell before moving left */
     g_cx--;
     if (g_cx >= cols) g_cx = cols - 1;
-    cursor_on = 0; /* space below covers the bar cell fully */
     draw_glyph(' ', g_cx, g_cy, g_fg, g_bg);
+    /* Old caret cell (one right) held bar-only: blank it too, then the
+     * bar follows via the refresh. Both paints clip safely off-screen. */
+    if (g_cx + 1 < cols) draw_glyph(' ', g_cx + 1, g_cy, g_fg, g_bg);
+    caret_refresh();
   }
 }
 

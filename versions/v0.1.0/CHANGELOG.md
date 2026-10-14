@@ -562,6 +562,12 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Two cursor complaints from real iron: (1) delete left a second static bar — `fb_backspace` cleared the flag without erasing the old cell before moving left; now it hides first, so the flag⟺pixels invariant holds on every path (verified: typed/erased text exact, single bar at the live cell). (2) blink felt slow/frozen — the ladder is now PIT-led at exact 500ms phases (auto-checked each RTC second, RTC parity when PIT stalls, TSC bit 31 with no clock), evaluated every loop pass so floods can't starve it.
 * Measurement note for future screenshots: ~1s-spaced captures period-lock with a 500ms blink and read as static; serial tick logs (exactly 100/s) plus off-resonance captures are the ground truth. Both used here.
 
+### Fixed - 2026-10-14 (cursor rewritten stateless from scratch)
+
+* Root causes found, not patched around: (1) `read_line` parked inside blocking `kbd_getc` on any input glitch, freezing the old loop-tied blink eval — the blink now also runs from the PIT tick (IRQ, independent of input state) and from `getc`'s own wait; (2) the old show/hide flag could strand pixels, doubling the bar — there is no flag anymore.
+* New design (`kernel/drv/fb.c`, `fb.h`, `shell.c`, `task.c`, `ps2_kbd.c`): `caret_refresh()` repaints the caret cell from the text ring (input char or blank) plus the bar per blink phase — every paint derives from ring state, so stale/double is impossible by construction. Moves repaint the old cell from ring state first (committed line for newline/wrap, input line for CR, blank neighbor for backspace). Blink ladder unchanged (PIT-checked 500ms, RTC, TSC). Repaint/clear end with a refresh; history view stays bar-free.
+* Verified: 48px alternation off-resonance, single-bar column proof (one run max, never two) at the live cell after type/erase, `help`/`font`/`list` output exact, zero warnings.
+
 ### Fixed - 2026-10-13 (live session: every command verified on ISO)
 
 * `nafs mount` had nothing to mount on a live boot: the ramdisk never shipped `/DATA.NAFS` (only the ESP had it). `tools/mkramdisk.sh` now copies `build/data.nafs` like `mkesp.sh` does.

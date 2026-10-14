@@ -1,5 +1,6 @@
 /* NaOS PS/2 keyboard driver. Set 1, interrupt-driven ring buffer. */
 #include "ps2_kbd.h"
+#include "fb.h" /* caret_refresh in the wait: a parked getc must not stop it */
 #include "../../common/io.h"
 
 #define KBD_DATA 0x60
@@ -109,8 +110,10 @@ static int translate_ext(uint8_t sc) {
 
 int kbd_getc(void) {
   for (;;) {
-    /* Wait for a scancode with interrupts on. */
-    while (kbd_empty()) { __asm__ volatile ("hlt"); }
+    /* Wait for a scancode with interrupts on. Refresh the caret while
+     * parked: garbage input must never freeze it (the IRQ tick covers
+     * floods too, this covers a lone park with a live tail). */
+    while (kbd_empty()) { caret_refresh(); __asm__ volatile ("hlt"); }
     __asm__ volatile ("cli");
     uint8_t sc = 0;
     int have = 0;

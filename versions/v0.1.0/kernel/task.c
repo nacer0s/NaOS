@@ -152,6 +152,7 @@ static void reap_dead(void) {
 
 void sched_on_tick(isr_frame_t *f) {
   pit_tick();
+  caret_refresh(); /* blink from IRQ: alive even if input parks the shell */
   usb_kbd_poll(); /* drain XHCI event ring (no-op without USB kbd) */
   net_poll();     /* drain NIC RX ring (no-op without network) */
   if (((f->cs) & 3) == 3)
