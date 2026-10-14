@@ -566,6 +566,10 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 * The new reason line on real iron says `absent (file not found)`: the open itself fails while `KERNEL.ELF` opens fine moments earlier. `file_open_stream()` now reports its stage, the handoff carries `rd_status` 5/6/7 + the failing EFI status (`rd_estatus`), and the kernel prints e.g. `ramdisk: absent (open failed, efi 0x...)`. The status value names the firmware's refusal (not-found vs denied vs ...), which picks the fix (layout vs attributes vs ...). Verified normal path unchanged (staged, zero warnings).
 
+### Fixed - 2026-10-14 (one shared volume root for the whole boot)
+
+* Real iron reports `open failed, efi 0x8000000000000000`: not a real UEFI code (value 0 + error bit = garbage), from the *second* file open on the volume — the classic shape of a firmware whose second `OpenVolume` goes stale after the first root was closed. `file_open_stream()` now opens the volume once into a static root shared by kernel + ramdisk loads and never closes it (ExitBootServices tears down anyway). Verified QEMU boots + stages + shells as before, zero warnings.
+
 ### Fixed - 2026-10-13 (real hardware round 4: framebuffer speed)
 
 * Bare metal scrolled one line per eternity: every scroll did a full-screen pixel `memmove` that READS the framebuffer back over PCIe (uncacheable mapping, no read combining) plus per-pixel writes — QEMU never notices (RAM-speed VRAM), real GPUs crawl. Fix: `vmm_init` programs PAT index 2 as write-combining and maps the fb with `vmm_map_wc` (drivers stay uncacheable via `vmm_map_mmio`; RAM stays write-back), and `fb_putc` no longer moves pixels at all — newlines advance the cursor, overflowing only into the canonical `repaint()` (already used by clear/font/PgUp/PgDn), which writes sequentially and never reads VRAM.

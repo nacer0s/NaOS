@@ -1,6 +1,12 @@
 /* NaOS bootloader file loader. Flow: LoadedImage -> DeviceHandle -> SimpleFS
- * -> OpenVolume -> Open(path) -> GetInfo(size) -> AllocatePool -> Read. */
+ * -> shared volume root -> Open(path) -> GetInfo(size) -> Read (all/chunks). */
 #include "file.h"
+
+/* Volume root, opened once and shared by every file (kernel + ramdisk).
+ * Some real firmware hands a stale handle to the second OpenVolume after
+ * the first root was Closed (garbage status on open); one root for the
+ * whole boot avoids the issue. Never closed: ExitBootServices tears down. */
+static EFI_FILE_PROTOCOL *g_root = 0;
 
 EFI_STATUS file_open_stream(EFI_HANDLE image, EFI_BOOT_SERVICES *bs,
                             const CHAR16 *path, EFI_FILE_PROTOCOL **file_out,
@@ -22,11 +28,13 @@ EFI_STATUS file_open_stream(EFI_HANDLE image, EFI_BOOT_SERVICES *bs,
                           (VOID **)&fs);
   if (st != EFI_SUCCESS || !fs) { STAGE(2); return st ? st : 2; }
 
-  st = fs->OpenVolume(fs, &root);
-  if (st != EFI_SUCCESS || !root) { STAGE(3); return st ? st : 3; }
+  if (!g_root) {
+    st = fs->OpenVolume(fs, &g_root);
+    if (st != EFI_SUCCESS || !g_root) { STAGE(3); return st ? st : 3; }
+  }
+  root = g_root;
 
   st = root->Open(root, &file, path, EFI_FILE_MODE_READ, 0);
-  root->Close(root);
   if (st != EFI_SUCCESS || !file) { STAGE(4); return st ? st : 4; }
 
   /* Query size via FileInfo. */
