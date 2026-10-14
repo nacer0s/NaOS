@@ -36,8 +36,19 @@ static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
   UINTN run_len, run_off, done, co, got, want, m;
 
   int stage = 0;
+  int retried = 0;
 
   st = file_open_stream(ImageHandle, bs, kRamdiskPath, &file, &size, &stage);
+  if ((st != EFI_SUCCESS || !file) && stage == 4) {
+    /* Second chance on a fresh volume root (never Close the old one:
+     * suspect on some firmware). Covers first-open-wins quirks. */
+    file_reset_root();
+    co_puts("RAMDISK retry...\n");
+    stage = 0;
+    retried = 1;
+    st = file_open_stream(ImageHandle, bs, kRamdiskPath, &file, &size,
+                          &stage);
+  }
   if (st != EFI_SUCCESS || !file) {
     if (file) file->Close(file);
     bi->rd_status = (stage <= 4) ? 5 : 6;
@@ -130,7 +141,7 @@ static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
     bi->rd_base[i] = bases[i];
     bi->rd_pages[i] = pages[i];
   }
-  bi->rd_status = 1;
+  bi->rd_status = retried ? 8 : 1;
   bi->rd_done = (uint32_t)size;
   bi->rd_size = (uint32_t)size;
   co_puts("RAMDISK live image ready\n");
@@ -203,6 +214,11 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
   serial_put_hex64(bootinfo.fb_base);
   serial_puts("\n");
 
+  /* Live-boot RAM disk first: the optional image gets first dibs on the
+   * volume (some firmware only honors early file opens); never fatal. */
+  co_puts("Loading \\NaOS\\RAMDISK.IMG...\n");
+  load_ramdisk(ImageHandle, bs, &bootinfo);
+
   /* Load kernel file */
   uint8_t *kimg = 0;
   UINTN ksize = 0;
@@ -223,10 +239,6 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
   serial_puts("kernel entry=");
   serial_put_hex64((uint64_t)entry);
   serial_puts("\n");
-
-  /* Live-boot RAM disk (optional file, staged below 1G for the kernel). */
-  co_puts("Loading \\NaOS\\RAMDISK.IMG...\n");
-  load_ramdisk(ImageHandle, bs, &bootinfo);
 
   /* Exit boot services */
   co_puts("ExitBootServices...\n");

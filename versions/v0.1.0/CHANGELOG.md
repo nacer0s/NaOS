@@ -570,6 +570,10 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 * Real iron reports `open failed, efi 0x8000000000000000`: not a real UEFI code (value 0 + error bit = garbage), from the *second* file open on the volume — the classic shape of a firmware whose second `OpenVolume` goes stale after the first root was closed. `file_open_stream()` now opens the volume once into a static root shared by kernel + ramdisk loads and never closes it (ExitBootServices tears down anyway). Verified QEMU boots + stages + shells as before, zero warnings.
 
+### Fixed - 2026-10-14 (ramdisk loads first + volume retry)
+
+* Real iron now returns a clean `EFI_NOT_FOUND` for the ramdisk open while the kernel opens fine — same volume, same directory. Remaining suspects are order/state quirks, so the bootloader now stages the optional image FIRST (kernel load is unchanged and still fatal), and a failed ramdisk open retries once on a fresh volume root without closing the old one (new `file_reset_root()`; close path suspected). Status 8 + `(after retry)` in the staged message (and a `RAMDISK retry...` line) tell which path worked. Verified QEMU stages first-try with the new order, zero warnings.
+
 ### Fixed - 2026-10-13 (real hardware round 4: framebuffer speed)
 
 * Bare metal scrolled one line per eternity: every scroll did a full-screen pixel `memmove` that READS the framebuffer back over PCIe (uncacheable mapping, no read combining) plus per-pixel writes — QEMU never notices (RAM-speed VRAM), real GPUs crawl. Fix: `vmm_init` programs PAT index 2 as write-combining and maps the fb with `vmm_map_wc` (drivers stay uncacheable via `vmm_map_mmio`; RAM stays write-back), and `fb_putc` no longer moves pixels at all — newlines advance the cursor, overflowing only into the canonical `repaint()` (already used by clear/font/PgUp/PgDn), which writes sequentially and never reads VRAM.

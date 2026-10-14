@@ -72,7 +72,8 @@ void kmain(naos_bootinfo_t *bi) {
   sched_init((uint64_t)(uintptr_t)stack_top);
   ramblk_init(g_bi.rd_base, g_bi.rd_pages); /* live image, maybe absent */
   if (ramblk_ok()) {
-    kprintf("ramdisk: live image staged\n");
+    kprintf("ramdisk: live image staged%s\n",
+            g_bi.rd_status == 8 ? " (after retry)" : "");
   } else {
     static const char *const why[] = {
       "file not found", "ready?", "page alloc failed",

@@ -14,5 +14,8 @@ EFI_STATUS file_read_all(EFI_HANDLE image, EFI_BOOT_SERVICES *bs,
 EFI_STATUS file_open_stream(EFI_HANDLE image, EFI_BOOT_SERVICES *bs,
                             const CHAR16 *path, EFI_FILE_PROTOCOL **file_out,
                             UINTN *size_out, int *stage_out);
+/* Forget the cached volume root (no Close: suspect on some firmware).
+ * The next open re-opens the volume fresh. Retry path for finicky FAT. */
+void file_reset_root(void);
 
 #endif /* NAOS_FILE_H */
