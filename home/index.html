@@ -173,7 +173,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
 </span><span class="t-ok">dhcp: ack 10.0.2.15
 </span><span class="t-out">NaOS&gt; version
 NaOS v0.1.0
-build 2026-10-11 (x86_64 UEFI, from scratch)
+build (stamped at compile time — x86_64 UEFI, from scratch)
 NaOS&gt; </span><span class="cursor"></span></div>
     </div>
   </div>
@@ -195,7 +195,7 @@ NaOS&gt; </span><span class="cursor"></span></div>
     <div class="feats">
       <div class="feat"><span class="n">01</span><h3><i class="fa-solid fa-power-off"></i>Own UEFI bootloader</h3><p>Custom <code>BOOTX64.EFI</code> in C: GOP framebuffer, ELF64 parsing, one-shot ExitBootServices, clean handoff — plus a shell auto-boot fallback.</p></div>
       <div class="feat"><span class="n">02</span><h3><i class="fa-solid fa-terminal"></i>Plain-English shell</h3><p>A <code>NaOS&gt;</code> prompt with 39 commands, history, scrollback, font sizes, output redirect and a themeable prompt.</p></div>
-      <div class="feat"><span class="n">03</span><h3><i class="fa-solid fa-hard-drive"></i>Real storage</h3><p>AHCI, NVMe and ATA under one block layer, writable FAT32, long filenames — and a 40MB live RAM disk, so the ISO boots with files anywhere.</p></div>
+      <div class="feat"><span class="n">03</span><h3><i class="fa-solid fa-hard-drive"></i>Real storage</h3><p>AHCI, NVMe and ATA under one block layer, writable FAT32, long filenames — and a live RAM copy of the boot volume, so the ISO boots with files anywhere.</p></div>
       <div class="feat"><span class="n">04</span><h3><i class="fa-solid fa-code-fork"></i>Multitasking + fork</h3><p>Ring-3 tasks with private address spaces, preemptive scheduler, syscalls, copy-on-write <code>fork()</code>, disk-loaded ELF programs with file I/O.</p></div>
       <div class="feat"><span class="n">05</span><h3><i class="fa-solid fa-network-wired"></i>TCP/IP networking</h3><p>E1000 driver with ARP, ping, UDP sockets, DHCP, DNS and a TCP client — <code>fetch</code> pages over HTTP, <code>update</code> pulls verified downloads.</p></div>
       <div class="feat"><span class="n">06</span><h3><i class="fa-solid fa-keyboard"></i>USB HID keyboard</h3><p>Polled XHCI stack with hotplug rescan next to the classic PS/2 driver. PC-speaker beeps included.</p></div>
@@ -223,11 +223,11 @@ NaOS&gt; </span><span class="cursor"></span></div>
     <div class="tbl">
     <table>
       <tr><th>#</th><th>Stage</th><th>What happens</th><th>Artifact</th></tr>
-      <tr><td class="mono">00</td><td>UEFI firmware</td><td>Mounts the ESP, runs the fallback loader</td><td class="mono">\EFI\BOOT\BOOTX64.EFI · 15,656 B</td></tr>
-      <tr><td class="mono">01</td><td>BOOTX64.EFI</td><td>GOP framebuffer, parses ELF64, stages the RAM disk</td><td class="mono">\NaOS\KERNEL.ELF → 0x100000</td></tr>
+      <tr><td class="mono">00</td><td>UEFI firmware</td><td>Mounts the ESP, runs the fallback loader</td><td class="mono">\EFI\BOOT\BOOTX64.EFI · ~17 KB</td></tr>
+      <tr><td class="mono">01</td><td>BOOTX64.EFI</td><td>GOP framebuffer, parses ELF64, stages a live RAM copy of the boot volume</td><td class="mono">\NaOS\KERNEL.ELF → 0x100000</td></tr>
       <tr><td class="mono">02</td><td>ExitBootServices</td><td>One-shot exit; hands a <code>bootinfo</code> struct down</td><td class="mono">NAOS_BOOTINFO_MAGIC</td></tr>
       <tr><td class="mono">03</td><td>kernel_entry</td><td>GDT · IDT · PIC · PIT 100Hz · PMM · own PML4 · heap</td><td class="mono">CR3 switch, 16 task slots</td></tr>
-      <tr><td class="mono">04</td><td>Drivers</td><td>Block (AHCI → NVMe → ATA → RAM disk) · FAT32 · USB · E1000</td><td class="mono">blk: using …</td></tr>
+      <tr><td class="mono">04</td><td>Drivers</td><td>Block (AHCI → NVMe → ATA → RAM copy) · FAT32 · USB · E1000</td><td class="mono">blk: using …</td></tr>
       <tr><td class="mono">05</td><td>Network</td><td>Static IP, then DHCP lease when a server answers</td><td class="mono">10.0.2.15/24 via 10.0.2.2</td></tr>
       <tr><td class="mono">06</td><td>NaOS&gt; shell</td><td>Settings load, 39 commands, blinking cursor</td><td class="mono">/SETTINGS.TXT</td></tr>
     </table>
@@ -245,7 +245,7 @@ NaOS&gt; </span><span class="cursor"></span></div>
       <tr><th>Range</th><th>Use</th></tr>
       <tr><td class="mono">0x000000–0x09FFFF</td><td>Low memory — firmware-owned until ExitBootServices</td></tr>
       <tr><td class="mono">0x100000 …</td><td>Kernel ELF <code>LOAD</code> segments, entry <code>kernel_entry</code></td></tr>
-      <tr><td class="mono">&lt; 0x40000000</td><td>Live RAM-disk runs (40MB FAT32, staged pre-exit)</td></tr>
+      <tr><td class="mono">&lt; 0x40000000</td><td>Live RAM copy of the boot volume (Block I/O, staged pre-exit)</td></tr>
       <tr><td class="mono">0x40100000…</td><td>Ring-3 programs (fixed base, private tables per task)</td></tr>
       <tr><td class="mono">0 … 1G identity</td><td>Own PML4: identity 0–1G + framebuffer window, 2M pages</td></tr>
       <tr><td class="mono">EfiConventionalMemory</td><td>PMM free-page stack · 4KB pages · 16KB kernel stacks</td></tr>
@@ -303,7 +303,7 @@ NaOS&gt; </span><span class="cursor"></span></div>
       <div>
         <span class="ver-tag">current · verified on QEMU + VirtualBox</span>
         <h3>NaOS v0.1.0</h3>
-        <p>Shell · FAT32 + live RAM disk · multitasking + fork · USB keyboard · UDP/DHCP/DNS/TCP + updater · AHCI/NVMe/ATA · NaOS-FS reader.</p>
+        <p>Shell · FAT32 + live RAM copy · multitasking + fork · USB keyboard · UDP/DHCP/DNS/TCP + updater · AHCI/NVMe/ATA · NaOS-FS reader.</p>
         <div class="btns">
           <a class="btn btn-solid" href="../versions/v0.1.0/"><i class="fa-solid fa-arrow-right"></i>RELEASE FILE</a>
           <a class="btn btn-ghost" href="https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.iso"><i class="fa-solid fa-download"></i>NaOS.v0.1.0.iso</a>

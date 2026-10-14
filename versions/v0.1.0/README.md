@@ -17,7 +17,7 @@ then `net`, `dhcp`, `ping 10.0.2.2`, and `fetch 10.0.2.2 8099 /path` (needs an H
 
 * **Bootable ISO:** [NaOS.v0.1.0.iso](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.iso) (68MB, UEFI) — or build it here with `make iso`. CD/USB boot runs a **live RAM session** (files work, writes vanish on reboot); persistence needs a SATA/NVMe/IDE disk.
 * **Raw disk image:** [NaOS.v0.1.0.img](https://github.com/nacer0s/NaOS/releases/download/v0.1.0/NaOS.v0.1.0.img) (64MB FAT) — attach as a VM hard disk for a boot **with files**, or `dd` to USB.
-* **Websites:** [release page](https://naos.nacer0s.com/versions/v0.1.0/) · [project home](https://naos.nacer0s.com/) · [code viewer](https://naos.nacer0s.com/browse.html) (read every file online, no install).
+* **Websites:** [release page](https://naos.nacer0s.com/versions/v0.1.0/) · [project home](https://naos.nacer0s.com/) · [code viewer](https://naos.nacer0s.com/home/browse/) (read every file online, no install).
 
 ## Requirements
 
@@ -85,7 +85,7 @@ make iso      # build/NaOS.v0.1.0.iso — El Torito UEFI boot image (needs xorri
 make run-iso  # boot the ISO itself in QEMU (-cdrom) to verify it
 ```
 
-Note: a CD/USB-booted system runs a **live RAM session** — `BOOTX64.EFI` stages a 40MB FAT image into memory and the kernel mounts it, so `list`/`read`/`run`/`edit` all work with files. Writes live in RAM and vanish on reboot (give the VM ≥256MB). Full persistence needs a SATA/NVMe/IDE disk (AHCI → NVMe → probed ATA → RAM disk, in that order).
+Note: a CD/USB-booted system runs a **live RAM session** — `BOOTX64.EFI` copies the whole boot volume into memory via Block I/O and the kernel mounts the copy, so `list`/`read`/`run`/`edit` all work with files. Writes live in RAM and vanish on reboot (give the VM ≥256MB). Full persistence needs a SATA/NVMe/IDE disk (AHCI → NVMe → probed ATA → RAM copy, in that order).
 
 VirtualBox: create the VM as type **Other/Unknown (64-bit)** (a 32-bit type disables Long Mode and no 64-bit OS can boot), enable EFI (Settings → System → Motherboard → **Enable EFI**), attach the ISO as optical drive — BIOS mode reports "no bootable medium" for this UEFI-only image. QEMU needs OVMF (`-drive if=pflash,...,file=edk2-x86_64-code.fd`), same as `make run-iso`.
 
@@ -96,7 +96,7 @@ You must know before trying:
 * **Secure Boot OFF.** Our `BOOTX64.EFI` is unsigned (no Microsoft keys); enable setup mode or disable Secure Boot in firmware.
 * **UEFI only, 64-bit.** No legacy BIOS/CSM support, by design.
 * **Honest hardware limits (v0.1.0):** the disk driver speaks AHCI first (port 0, polling DMA), then NVMe (one I/O queue pair, polled, 512B namespaces), with a legacy IDE PIO fallback; keyboards work over PS/2 and USB HID (XHCI, polled). Any SATA/NVMe disk plus a PS/2 or USB keyboard for input covers most machines.
-* Writing files on real hardware writes the USB stick's FAT partition — back it up first.
+* Writing files on a real disk install writes that disk's FAT partition — back it up first. (Live USB/CD sessions keep writes in RAM and lose them on reboot.)
 
 ## Numbers (all verified on QEMU q35 unless noted)
 
@@ -106,11 +106,11 @@ You must know before trying:
 | Syscalls | 10 via `int 0x80`: 0 exit, 1 print, 2 yield, 3 getpid, 4 sleep, 5 fork, 6 open, 7 read, 8 write, 9 close |
 | Tasks / scheduler | 16 slots · 50ms quantum @100Hz · 8 fds per task (opens from 3, 2048B per call, 4KB write buffer) |
 | Memory | kernel @`0x100000` · programs @`0x40100000` · PML4 identity 0–1G · ~52K free pages/256M |
-| Console | 12x24 + 8x16 cells, scales 1–4 · 256-line ring · history 16 · cursor ~4Hz |
-| Storage | AHCI port 0 → NVMe (admin 64 + IO 32 queues) → ATA PIO (LBA0 signature probe) → 40MB RAM disk |
+| Console | 12x24 + 8x16 cells, scales 1–4 · 256-line ring · history 16 · cursor ~1Hz blink |
+| Storage | AHCI port 0 → NVMe (admin 64 + IO 32 queues) → ATA PIO (LBA0 signature probe) → live RAM copy of the boot volume |
 | Network | E1000 · ARP/ICMP/UDP(68→67 DHCP)/TCP(1460 MSS, 4KB window) · DNS:53 · default 10.0.2.15/24 via 10.0.2.2 |
 | Filesystems | FAT32 R/W (LFN reads) · NaOS-FS v1 reader (512B blocks, 16×32B dirents, depth 8) |
-| Artifacts | BOOTX64.EFI 15,656 B · KERNEL.ELF 150,848 B · RAMDISK 40MiB · DATA.NAFS 61,952 B · ESP 64MiB · ISO ~67.7MiB |
+| Artifacts | BOOTX64.EFI ~17 KB · KERNEL.ELF ~155 KB · DATA.NAFS 61,952 B · ESP 64MiB · ISO ~64.6 MiB |
 
 ## Layout
 
