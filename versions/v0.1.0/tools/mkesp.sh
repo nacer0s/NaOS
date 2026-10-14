@@ -21,11 +21,6 @@ if ls $BUILD/progs/*.elf >/dev/null 2>&1; then
   mmd -i $IMG ::/PROGS || true
   mcopy -i $IMG $BUILD/progs/*.elf ::/PROGS/
 fi
-# Live-boot image for BOOTX64.EFI (last-resort disk when no drive mounts).
-if [ -f "$BUILD/ramdisk.img" ]; then
-  mdir -i $IMG ::/NaOS >/dev/null 2>&1 || mmd -i $IMG ::/NaOS
-  mcopy -i $IMG $BUILD/ramdisk.img ::/NaOS/RAMDISK.IMG
-fi
 # NaOS-FS demo image for the `nafs` command (read-only guest demo).
 if [ -f "$BUILD/data.nafs" ]; then
   mcopy -i $IMG $BUILD/data.nafs ::/DATA.NAFS

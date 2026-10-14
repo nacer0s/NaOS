@@ -8,8 +8,6 @@
  * whole boot avoids the issue. Never closed: ExitBootServices tears down. */
 static EFI_FILE_PROTOCOL *g_root = 0;
 
-void file_reset_root(void) { g_root = 0; }
-
 EFI_STATUS file_open_stream(EFI_HANDLE image, EFI_BOOT_SERVICES *bs,
                             const CHAR16 *path, EFI_FILE_PROTOCOL **file_out,
                             UINTN *size_out, int *stage_out) {

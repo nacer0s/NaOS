@@ -220,6 +220,34 @@ struct _EFI_FILE_PROTOCOL {
   VOID *Flush;
 };
 
+/* ---- Block I/O (whole-volume reads for live-image staging) ---- */
+typedef struct {
+  UINT32 MediaId;
+  UINT8  RemovableMedia;
+  UINT8  MediaPresent;
+  UINT8  LogicalPartition;
+  UINT8  ReadOnly;
+  UINT8  WriteCaching;
+  UINT32 BlockSize;
+  UINT8  IoAlign;
+  UINT8  Pad[3];
+  UINT64 LastBlock; /* last LBA, 0-based */
+} EFI_BLOCK_IO_MEDIA;
+
+typedef struct _EFI_BLOCK_IO_PROTOCOL EFI_BLOCK_IO_PROTOCOL;
+typedef EFI_STATUS (*EFI_BLOCK_READ)(EFI_BLOCK_IO_PROTOCOL *This,
+                                     UINT32 MediaId, UINT64 Lba,
+                                     UINTN BufferSize, VOID *Buffer);
+
+struct _EFI_BLOCK_IO_PROTOCOL {
+  UINT64 Revision;
+  EFI_BLOCK_IO_MEDIA *Media;
+  VOID *Reset;
+  EFI_BLOCK_READ ReadBlocks;
+  VOID *WriteBlocks;
+  VOID *FlushBlocks;
+};
+
 #define EFI_FILE_MODE_READ 1ULL
 
 typedef struct {
@@ -322,6 +350,8 @@ static const EFI_GUID kEfiSimpleFileSystemProtocolGuid =
   {0x0964e5b22, 0x6459, 0x11d2, {0x8E,0x39,0x00,0xA0,0xC9,0x69,0x72,0x3B}};
 static const EFI_GUID kEfiFileInfoGuid =
   {0x09576e92, 0x6d3f, 0x11d2, {0x8E,0x39,0x00,0xA0,0xC9,0x69,0x72,0x3B}};
+static const EFI_GUID kEfiBlockIoProtocolGuid =
+  {0x964e5b21, 0x6459, 0x11d2, {0x8E,0x39,0x00,0xA0,0xC9,0x69,0x72,0x3B}};
 static const EFI_GUID kEfiGraphicsOutputProtocolGuid =
   {0x9042a9de, 0x23dc, 0x4a38, {0x96,0xFB,0x7A,0xDE,0xD0,0x80,0x51,0x6A}};
 

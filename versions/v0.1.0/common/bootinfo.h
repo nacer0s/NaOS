@@ -32,7 +32,7 @@ typedef struct {
   uint32_t rd_status; /* 0=file absent/open fail 1=ready 2=page alloc fail
                        * 3=chunk buffer fail 4=read fail (see counts)
                        * 5=open failed 6=file-info failed 7=size rejected
-                       * 8=ready after volume retry */
+                       * 8=ready after volume retry 9=staged copy not FAT */
   uint32_t rd_done;   /* bytes staged before a read failure (status 4) */
   uint32_t rd_size;   /* file bytes total (status 4/7) */
   uint64_t rd_estatus; /* failing EFI status for 5/6 (0 when staged) */

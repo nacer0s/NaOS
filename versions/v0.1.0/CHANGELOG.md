@@ -574,6 +574,12 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 * Real iron now returns a clean `EFI_NOT_FOUND` for the ramdisk open while the kernel opens fine — same volume, same directory. Remaining suspects are order/state quirks, so the bootloader now stages the optional image FIRST (kernel load is unchanged and still fatal), and a failed ramdisk open retries once on a fresh volume root without closing the old one (new `file_reset_root()`; close path suspected). Status 8 + `(after retry)` in the staged message (and a `RAMDISK retry...` line) tell which path worked. Verified QEMU stages first-try with the new order, zero warnings.
 
+### Fixed - 2026-10-14 (live image = whole-volume block copy)
+
+* File opens for the 40MB image are firmware quicksand (NOT_FOUND/garbage while small files open fine), so the bootloader no longer opens it at all: `load_ramdisk` copies the whole boot volume via Block I/O into the page runs — no filenames, no per-file opens, no size-at-open issues. New minimal `EFI_BLOCK_IO_PROTOCOL` types in `boot/uefi/uefi.h`; known-size reads (`RD_VOL_BYTES` = ESP bytes, must match `mkesp.sh`) with FAT boot-signature validation, so wrong views (ISO9660 fallback, whole-stick exposure) are discarded like an absent image. `\NaOS\RAMDISK.IMG` retired: `tools/mkramdisk.sh` deleted, `esp` drops the `ramdisk` prereq, ESP/ISO slim down ~40MB. Kernel side untouched (mounts the copy as before).
+* Bonus catch while testing: the CD BlockIo reports unit-confused sizes (~270MB for a 67MB ISO), which the old reported-size check would refuse — fixed-size reads + content validation ignore the numbers and verify the bytes instead.
+* Verified: HDD boot stages 64MB + ahci shell; CD boot stages + `blk: using ramdisk (live)` + `list` shows all 8 ESP entries; zero warnings.
+
 ### Fixed - 2026-10-13 (real hardware round 4: framebuffer speed)
 
 * Bare metal scrolled one line per eternity: every scroll did a full-screen pixel `memmove` that READS the framebuffer back over PCIe (uncacheable mapping, no read combining) plus per-pixel writes — QEMU never notices (RAM-speed VRAM), real GPUs crawl. Fix: `vmm_init` programs PAT index 2 as write-combining and maps the fb with `vmm_map_wc` (drivers stay uncacheable via `vmm_map_mmio`; RAM stays write-back), and `fb_putc` no longer moves pixels at all — newlines advance the cursor, overflowing only into the canonical `repaint()` (already used by clear/font/PgUp/PgDn), which writes sequentially and never reads VRAM.

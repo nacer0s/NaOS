@@ -153,11 +153,8 @@ $(BUILD)/progs/%.elf: progs/%.c $(BUILD)/progs/crt0.o $(PROG_LD) | $(BUILD)
 $(BUILD):
 	mkdir -p $(BUILD)
 
-esp: all ramdisk nafsdata
+esp: all nafsdata
 	./tools/mkesp.sh $(ESP_IMG)
-
-ramdisk: nafsdata
-	./tools/mkramdisk.sh
 
 # NaOS-FS demo image (PROGS + docs) for the `nafs` command.
 nafsdata: progs

@@ -13,60 +13,70 @@
 
 static const CHAR16 kKernelPath[] =
   { '\\', 'N', 'a', 'O', 'S', '\\', 'K', 'E', 'R', 'N', 'E', 'L', '.', 'E', 'L', 'F', 0 };
-static const CHAR16 kRamdiskPath[] =
-  { '\\', 'N', 'a', 'O', 'S', '\\', 'R', 'A', 'M', 'D', 'I', 'S', 'K', '.', 'I', 'M', 'G', 0 };
 
-/* Live-boot image: stream the file in 1MB pool chunks into <=1G
- * LoaderData page runs (kernel identity map), described in bootinfo.
- * One 40MB pool shot + one 40MB firmware Read fails on stingy real
- * firmware; small sequential reads work everywhere. Best effort: absence
- * or failure just means a normal disk boot (or diskless shell). */
+/* Live-boot image: copy the WHOLE boot volume (our ESP) via Block I/O
+ * into <=1G LoaderData page runs (kernel identity map), described in
+ * bootinfo; the kernel mounts the copy as its last-resort disk.
+ * Why blocks, not the RAMDISK.IMG file: some real firmware refuses to
+ * open that file (NOT_FOUND/garbage status) while the small loader file
+ * opens fine — filenames and file sizes are firmware quicksand. Block
+ * reads are the most basic firmware disk op and carry no names at all.
+ * Best effort: absence or failure just means a normal disk boot (or a
+ * diskless shell). A staged copy that is not a FAT volume is discarded. */
 #define RD_RUNS 4
 #define RD_CHUNK (1024u * 1024u)
+/* ESP image bytes, exactly: must match the `dd ... count=64` in mkesp.sh.
+ * The drive may report more (whole stick) or unit-confused nonsense (some
+ * CD emulation); we always read this many bytes from LBA 0 and let the
+ * FAT validation below decide truth. */
+#define RD_VOL_BYTES (64u * 1024u * 1024u)
 static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
                          naos_bootinfo_t *bi) {
-  EFI_FILE_PROTOCOL *file = 0;
-  UINTN size = 0, per, left;
-  uint8_t *chunk = 0;
+  EFI_LOADED_IMAGE_PROTOCOL *loaded = 0;
+  EFI_BLOCK_IO_PROTOCOL *bio = 0;
   EFI_STATUS st;
   uint64_t bases[RD_RUNS];
   uint32_t pages[RD_RUNS];
   UINTN shares[RD_RUNS];
   int i, n, run;
-  UINTN run_len, run_off, done, co, got, want, m;
+  UINTN run_len, run_off, done, co, want, m;
+  UINTN per, left, blksz;
+  uint64_t total, lba;
+  uint32_t media_id;
+  uint8_t *chunk = 0;
 
-  int stage = 0;
-  int retried = 0;
-
-  st = file_open_stream(ImageHandle, bs, kRamdiskPath, &file, &size, &stage);
-  if ((st != EFI_SUCCESS || !file) && stage == 4) {
-    /* Second chance on a fresh volume root (never Close the old one:
-     * suspect on some firmware). Covers first-open-wins quirks. */
-    file_reset_root();
-    co_puts("RAMDISK retry...\n");
-    stage = 0;
-    retried = 1;
-    st = file_open_stream(ImageHandle, bs, kRamdiskPath, &file, &size,
-                          &stage);
+  st = bs->HandleProtocol(ImageHandle, &kEfiLoadedImageProtocolGuid, (VOID **)&loaded);
+  if (st != EFI_SUCCESS || !loaded || !loaded->DeviceHandle) {
+    bi->rd_status = 0;
+    co_puts("RAMDISK absent: disk boot\n");
+    return;
   }
-  if (st != EFI_SUCCESS || !file) {
-    if (file) file->Close(file);
-    bi->rd_status = (stage <= 4) ? 5 : 6;
+  st = bs->HandleProtocol(loaded->DeviceHandle, &kEfiBlockIoProtocolGuid,
+                          (VOID **)&bio);
+  if (st != EFI_SUCCESS || !bio || !bio->Media) {
+    bi->rd_status = 0;
     bi->rd_estatus = (uint64_t)st;
-    co_puts("RAMDISK open failed: disk boot\n");
+    co_puts("RAMDISK no blockio: disk boot\n");
     return;
   }
-  if (size == 0 || size > (64u * 1024u * 1024u) || (size & 511u)) {
-    file->Close(file);
+  blksz = (UINTN)bio->Media->BlockSize;
+  if (blksz == 0 || blksz > 4096u || (RD_CHUNK % blksz) != 0) {
     bi->rd_status = 7;
-    bi->rd_size = (uint32_t)size;
-    co_puts("RAMDISK bad size: disk boot\n");
+    bi->rd_size = (uint32_t)blksz;
+    co_puts("RAMDISK bad block size: disk boot\n");
     return;
   }
+  if (!bio->Media->MediaPresent) {
+    bi->rd_status = 0;
+    co_puts("RAMDISK absent: disk boot\n");
+    return;
+  }
+  total = RD_VOL_BYTES;
+  media_id = bio->Media->MediaId;
   /* Destination runs first (page allocs, never pool). */
-  per = (size + RD_RUNS - 1) / RD_RUNS;
+  per = ((UINTN)total + RD_RUNS - 1) / RD_RUNS;
   per = (per + 0xFFFULL) & ~0xFFFULL;
-  left = size;
+  left = (UINTN)total;
   n = 0;
   for (i = 0; i < RD_RUNS && left > 0; i++) {
     EFI_PHYSICAL_ADDRESS addr = 0x40000000u; /* below 1G, kernel-mapped */
@@ -83,55 +93,64 @@ static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
   if (left != 0) {
     bi->rd_status = 2;
     co_puts("RAMDISK alloc failed: disk boot\n");
-    file->Close(file);
     return; /* staged runs stay zeroed; leaked pages are LoaderData (safe) */
   }
   st = bs->AllocatePool(EfiLoaderData, RD_CHUNK, (VOID **)&chunk);
   if (st != EFI_SUCCESS || !chunk) {
     bi->rd_status = 3;
     co_puts("RAMDISK buffer failed: disk boot\n");
-    file->Close(file);
     return;
   }
-  /* Fill the runs sequentially, one firmware chunk at a time. Short reads
-   * (got < want, success) count as progress; only hard errors or EOF stop. */
+  /* Copy the volume sequentially, one chunk at a time. */
   run = 0;
   run_len = (UINTN)pages[0] * 4096u;
   run_off = 0;
   done = 0;
-  while (done < size) {
-    want = size - done;
-    if (want > RD_CHUNK) want = RD_CHUNK;
-    got = want;
-    st = file->Read(file, &got, chunk);
-    if (st != EFI_SUCCESS || got == 0 || got > want) break;
+  lba = 0;
+  while (done < (UINTN)total) {
+    UINTN bytes = (UINTN)total - done;
+    if (bytes > RD_CHUNK) bytes = RD_CHUNK;
+    st = bio->ReadBlocks(bio, media_id, lba, bytes, chunk);
+    if (st != EFI_SUCCESS) break;
     co = 0;
-    while (co < got) {
+    while (co < bytes) {
       UINTN room = run_len - run_off;
-      m = (got - co < room) ? (got - co) : room;
+      m = (bytes - co < room) ? (bytes - co) : room;
       naos_memcpy((VOID *)(uintptr_t)(bases[run] + run_off), chunk + co, m);
       co += m;
       run_off += m;
-      if (run_off >= run_len && done + co < size) {
+      if (run_off >= run_len && done + co < (UINTN)total) {
         run++;
         run_off = 0;
         run_len = (UINTN)pages[run] * 4096u;
       }
     }
-    done += got;
+    done += bytes;
+    lba += bytes / blksz;
   }
   bs->FreePool(chunk);
-  file->Close(file);
-  if (done != size) {
+  if (done != (UINTN)total) {
     bi->rd_status = 4;
     bi->rd_done = (uint32_t)done;
-    bi->rd_size = (uint32_t)size;
+    bi->rd_size = (uint32_t)total;
     co_puts("RAMDISK read failed at ");
     co_put_uint64((uint64_t)done);
     co_puts("/");
-    co_put_uint64((uint64_t)size);
+    co_put_uint64(total);
     co_puts(": disk boot\n");
     return;
+  }
+  /* The copy must be our FAT volume (El Torito image): boot signature +
+   * 512B sectors. Anything else (e.g. an ISO9660 fallback boot) is not
+   * mountable: discard like an absent image. */
+  {
+    uint8_t *b0 = (uint8_t *)(uintptr_t)bases[0];
+    uint16_t bps = (uint16_t)b0[11] | ((uint16_t)b0[12] << 8);
+    if (b0[510] != 0x55 || b0[511] != 0xAA || bps != 512) {
+      bi->rd_status = 9;
+      co_puts("RAMDISK not a FAT image: disk boot\n");
+      return;
+    }
   }
   for (i = 0; i < n; i++) { /* zero each run's rounding tail */
     UINTN cap = (UINTN)pages[i] * 4096u;
@@ -141,12 +160,12 @@ static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
     bi->rd_base[i] = bases[i];
     bi->rd_pages[i] = pages[i];
   }
-  bi->rd_status = retried ? 8 : 1;
-  bi->rd_done = (uint32_t)size;
-  bi->rd_size = (uint32_t)size;
+  bi->rd_status = 1;
+  bi->rd_done = (uint32_t)total;
+  bi->rd_size = (uint32_t)total;
   co_puts("RAMDISK live image ready\n");
   serial_puts("ramdisk: ");
-  serial_put_hex64(size);
+  serial_put_hex64(total);
   serial_puts(" bytes staged\n");
 }
 
@@ -216,7 +235,7 @@ EFI_STATUS efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable) {
 
   /* Live-boot RAM disk first: the optional image gets first dibs on the
    * volume (some firmware only honors early file opens); never fatal. */
-  co_puts("Loading \\NaOS\\RAMDISK.IMG...\n");
+  co_puts("Staging live image (whole disk)...\n");
   load_ramdisk(ImageHandle, bs, &bootinfo);
 
   /* Load kernel file */
