@@ -557,6 +557,11 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 * Real iron still shows a static cursor: it follows text but never toggles idle. Two remaining suspects, both closed: (1) broken RTC *and* odd PIT would pin the phase — new `pit_tsc()` fallback (`kernel/drv/pit.c/.h`, raw `rdtsc`, always advances while the CPU runs; bit 32 ≈ 1–4s phases) replaces the PIT fallback, so all three timebases would have to fail at once; (2) a garbage-input trickle could starve the old empty-only branch — the phase now evaluates every loop pass, not just when idle. `rtc_second()` also caches a missing clock instead of burning 100K port reads per pass. Verified both paths flip 48px in QEMU (TSC path via forced-off RTC test, then reverted).
 
+### Fixed - 2026-10-14 (500ms blink ladder + backspace keeps the bar single)
+
+* Two cursor complaints from real iron: (1) delete left a second static bar — `fb_backspace` cleared the flag without erasing the old cell before moving left; now it hides first, so the flag⟺pixels invariant holds on every path (verified: typed/erased text exact, single bar at the live cell). (2) blink felt slow/frozen — the ladder is now PIT-led at exact 500ms phases (auto-checked each RTC second, RTC parity when PIT stalls, TSC bit 31 with no clock), evaluated every loop pass so floods can't starve it.
+* Measurement note for future screenshots: ~1s-spaced captures period-lock with a 500ms blink and read as static; serial tick logs (exactly 100/s) plus off-resonance captures are the ground truth. Both used here.
+
 ### Fixed - 2026-10-13 (live session: every command verified on ISO)
 
 * `nafs mount` had nothing to mount on a live boot: the ramdisk never shipped `/DATA.NAFS` (only the ESP had it). `tools/mkramdisk.sh` now copies `build/data.nafs` like `mkesp.sh` does.

@@ -391,6 +391,7 @@ void fb_backspace(void) {
   if (con_cur_len > 0) con_cur_len--;
   if (!con_view) {
     if (g_cx == 0) return;
+    fb_cursor_hide(); /* erase at the old cell before moving left */
     g_cx--;
     if (g_cx >= cols) g_cx = cols - 1;
     cursor_on = 0; /* space below covers the bar cell fully */

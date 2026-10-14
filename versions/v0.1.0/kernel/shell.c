@@ -748,17 +748,31 @@ static void erase_chars(size_t n) {
 /* Read one line with history (no prompt). Returns length. */
 static size_t read_line(char *line) {
   static char saved[LINE_MAX];
+  static int sec_mark = -1;    /* last RTC second checkpointed */
+  static uint64_t tk_mark = 0; /* pit_ticks() at that checkpoint */
+  static int pit_ok = 1;       /* PIT advances until a second says otherwise */
   size_t n = 0;
   int nav = -1;
   for (;;) {
     int c;
     /* Blink phase every pass, not only when the keyboard is empty: an
      * input flood must never starve it. Live tail only; history rests.
-     * RTC seconds when a clock exists, else the always-running TSC. */
+     * Ladder: exact PIT (500ms) while it advances (checked each RTC
+     * second), else RTC seconds, else the always-running TSC. */
     if (fb_is_live()) {
       int sec = rtc_second();
-      int phase = (sec >= 0) ? (sec & 1)
-                             : (int)((pit_tsc() >> 32) & 1u);
+      uint64_t tk = pit_ticks();
+      int phase;
+      if (sec >= 0) {
+        if (sec != sec_mark) {
+          sec_mark = sec;
+          pit_ok = (tk != tk_mark);
+          tk_mark = tk;
+        }
+        phase = pit_ok ? (int)((tk / 50) & 1u) : (sec & 1);
+      } else {
+        phase = (int)((pit_tsc() >> 31) & 1u);
+      }
       if (phase) fb_cursor_show();
       else fb_cursor_hide();
     }
