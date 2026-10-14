@@ -35,12 +35,21 @@ static void load_ramdisk(EFI_HANDLE ImageHandle, EFI_BOOT_SERVICES *bs,
   int i, n, run;
   UINTN run_len, run_off, done, co, got, want, m;
 
-  st = file_open_stream(ImageHandle, bs, kRamdiskPath, &file, &size);
-  if (st != EFI_SUCCESS || !file || size == 0 ||
-      size > (64u * 1024u * 1024u) || (size & 511u)) {
+  int stage = 0;
+
+  st = file_open_stream(ImageHandle, bs, kRamdiskPath, &file, &size, &stage);
+  if (st != EFI_SUCCESS || !file) {
     if (file) file->Close(file);
-    bi->rd_status = 0;
-    co_puts("RAMDISK absent: disk boot\n");
+    bi->rd_status = (stage <= 4) ? 5 : 6;
+    bi->rd_estatus = (uint64_t)st;
+    co_puts("RAMDISK open failed: disk boot\n");
+    return;
+  }
+  if (size == 0 || size > (64u * 1024u * 1024u) || (size & 511u)) {
+    file->Close(file);
+    bi->rd_status = 7;
+    bi->rd_size = (uint32_t)size;
+    co_puts("RAMDISK bad size: disk boot\n");
     return;
   }
   /* Destination runs first (page allocs, never pool). */

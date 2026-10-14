@@ -76,12 +76,19 @@ void kmain(naos_bootinfo_t *bi) {
   } else {
     static const char *const why[] = {
       "file not found", "ready?", "page alloc failed",
-      "chunk buffer failed", "read failed"
+      "chunk buffer failed", "read failed", "open failed",
+      "file info failed", "bad size"
     };
-    uint32_t st = (g_bi.rd_status < 5) ? g_bi.rd_status : 0;
+    uint32_t st = (g_bi.rd_status < 8) ? g_bi.rd_status : 0;
     if (st == 4)
       kprintf("ramdisk: absent (%s at %u/%u bytes)\n", why[st],
               (unsigned)g_bi.rd_done, (unsigned)g_bi.rd_size);
+    else if (st == 5 || st == 6)
+      kprintf("ramdisk: absent (%s, efi %p)\n", why[st],
+              (void *)(uintptr_t)g_bi.rd_estatus);
+    else if (st == 7)
+      kprintf("ramdisk: absent (%s %u)\n", why[st],
+              (unsigned)g_bi.rd_size);
     else
       kprintf("ramdisk: absent (%s)\n", why[st]);
   }

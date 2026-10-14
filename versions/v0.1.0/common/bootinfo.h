@@ -30,9 +30,11 @@ typedef struct {
   uint64_t rd_base[4];
   uint32_t rd_pages[4];
   uint32_t rd_status; /* 0=file absent/open fail 1=ready 2=page alloc fail
-                       * 3=chunk buffer fail 4=read fail (see counts) */
+                       * 3=chunk buffer fail 4=read fail (see counts)
+                       * 5=open failed 6=file-info failed 7=size rejected */
   uint32_t rd_done;   /* bytes staged before a read failure (status 4) */
-  uint32_t rd_size;   /* file bytes total (status 4: cliff location) */
+  uint32_t rd_size;   /* file bytes total (status 4/7) */
+  uint64_t rd_estatus; /* failing EFI status for 5/6 (0 when staged) */
 } naos_bootinfo_t;
 
 #endif /* NAOS_BOOTINFO_H */
