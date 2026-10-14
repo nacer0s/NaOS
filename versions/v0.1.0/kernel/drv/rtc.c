@@ -61,15 +61,17 @@ int rtc_read(rtc_time_t *out) {
 }
 
 int rtc_second(void) {
+  static int no_clock = 0;
   uint8_t s, b;
+  if (no_clock) return -1; /* hardware never gains a clock: skip the wait */
   for (int i = 0; i < 100000; i++) {
     if ((cmos(0x0A) & 0x80) == 0) break;
   }
-  if (cmos(0x0A) & 0x80) return -1;
+  if (cmos(0x0A) & 0x80) { no_clock = 1; return -1; }
   s = cmos(0x00);
   b = cmos(0x0B);
   if ((b & 0x04) == 0) s = bcd(s); /* BCD mode */
-  if (s > 59) return -1;
+  if (s > 59) { no_clock = 1; return -1; }
   return (int)s;
 }
 

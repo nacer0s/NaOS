@@ -553,6 +553,10 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 * Every output char hid the bar, so during any program output it looked dead (each char reset it to off). Now `fb_putc`/`fb_backspace` only sync the flag (the glyph repaints the cell and covers the bar); only a cursor MOVE without drawing (newline/CR/wrap) erases stale pixels. `read_line` no longer hides on entry/keypress. Invariant: flag set ⟺ bar pixels present (repaint/clear wipe + clear it). Verified: `help` text intact with no stale bars, backspace round-trip exact, RTC phases still flip 48px.
 
+### Fixed - 2026-10-14 (blink survives dead timers + input floods)
+
+* Real iron still shows a static cursor: it follows text but never toggles idle. Two remaining suspects, both closed: (1) broken RTC *and* odd PIT would pin the phase — new `pit_tsc()` fallback (`kernel/drv/pit.c/.h`, raw `rdtsc`, always advances while the CPU runs; bit 32 ≈ 1–4s phases) replaces the PIT fallback, so all three timebases would have to fail at once; (2) a garbage-input trickle could starve the old empty-only branch — the phase now evaluates every loop pass, not just when idle. `rtc_second()` also caches a missing clock instead of burning 100K port reads per pass. Verified both paths flip 48px in QEMU (TSC path via forced-off RTC test, then reverted).
+
 ### Fixed - 2026-10-13 (live session: every command verified on ISO)
 
 * `nafs mount` had nothing to mount on a live boot: the ramdisk never shipped `/DATA.NAFS` (only the ESP had it). `tools/mkramdisk.sh` now copies `build/data.nafs` like `mkesp.sh` does.

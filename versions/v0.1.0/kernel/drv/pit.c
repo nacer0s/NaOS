@@ -21,3 +21,12 @@ void pit_tick(void) {
 uint64_t pit_ticks(void) {
   return g_ticks;
 }
+
+/* CPU timestamp counter: advances whenever the CPU runs (invariant TSC on
+ * everything x86_64; hlt/C1 never stops it). Last-resort blink timebase
+ * when both RTC and PIT are unusable. Bit 32 flips every ~1-4s by CPU. */
+uint64_t pit_tsc(void) {
+  uint32_t lo, hi;
+  __asm__ volatile ("rdtsc" : "=a" (lo), "=d" (hi));
+  return ((uint64_t)hi << 32) | lo;
+}

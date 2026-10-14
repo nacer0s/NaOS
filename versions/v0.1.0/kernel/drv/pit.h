@@ -7,5 +7,6 @@
 void pit_init(uint32_t hz);
 void pit_tick(void);       /* called from IRQ0 */
 uint64_t pit_ticks(void);
+uint64_t pit_tsc(void);    /* CPU timestamp counter (blink fallback) */
 
 #endif /* NAOS_PIT_H */

@@ -752,15 +752,17 @@ static size_t read_line(char *line) {
   int nav = -1;
   for (;;) {
     int c;
+    /* Blink phase every pass, not only when the keyboard is empty: an
+     * input flood must never starve it. Live tail only; history rests.
+     * RTC seconds when a clock exists, else the always-running TSC. */
+    if (fb_is_live()) {
+      int sec = rtc_second();
+      int phase = (sec >= 0) ? (sec & 1)
+                             : (int)((pit_tsc() >> 32) & 1u);
+      if (phase) fb_cursor_show();
+      else fb_cursor_hide();
+    }
     if (kbd_empty()) {
-      /* Idle: blink from the wall clock (1s phases), not the PIT — immune
-       * to timer-rate quirks. Only on the live tail; history view rests. */
-      if (fb_is_live()) {
-        int sec = rtc_second();
-        int phase = (sec >= 0) ? (sec & 1) : (int)((pit_ticks() / 50) & 1);
-        if (phase) fb_cursor_show();
-        else fb_cursor_hide();
-      }
       __asm__ volatile ("hlt");
       continue;
     }
