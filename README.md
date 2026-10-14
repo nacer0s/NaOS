@@ -57,6 +57,8 @@ One-time host setup (Windows + MSYS2 UCRT64, QEMU via `winget`, rest via `pacman
 README.md            this file — project hub (global, not per-version)
 LICENCE.md           custom licence for the whole project (source-available, non-commercial)
 SECURITY.md          security policy: supported versions + how to report
+CONTRIBUTING.md      how to contribute: setup, rules, licence, pull requests
+ACCESSIBILITY.md     accessibility commitment + per-version feature notes
 index.html           root redirect → home/ (meta + JS + manual link)
 home/index.html      project website (dossier design, offline-safe)
 home/browse/index.html in-browser source viewer (GitHub API, no install)
