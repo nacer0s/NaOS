@@ -1,4 +1,4 @@
-<img width="256" height="256" alt="NaOS" src="https://github.com/user-attachments/assets/0cf8ea3b-8547-4b68-904b-223caed76c57" />
+<img width="1920" height="1080" alt="NaOS-Artboard-2" src="https://github.com/user-attachments/assets/8b882b29-e884-4ac9-91ca-4a2dd5d950f6" />
 
 # NaOS
 
