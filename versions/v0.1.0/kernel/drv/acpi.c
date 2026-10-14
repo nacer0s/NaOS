@@ -4,6 +4,7 @@
 #include "../lib/kprintf.h"
 #include "../../common/io.h"
 #include "../../common/cstring.h"
+#include "../mm/vmm.h"
 
 static int g_ok;
 static uint16_t g_pm1a;
@@ -24,6 +25,22 @@ static int checksum(const uint8_t *p, uint32_t len) {
   uint8_t s = 0;
   for (uint32_t i = 0; i < len; i++) s = (uint8_t)(s + p[i]);
   return s == 0;
+}
+
+/* Identity covers low RAM only: map any 2M window at/above 1G before
+ * touching firmware tables there (modern firmware parks them high).
+ * Uncacheable is fine for one-time table reads. */
+#define VMM_IDENTITY_END 0x40000000ULL
+#define P2M_MASK (~0x1FFFFFULL)
+static int map_range(uint64_t addr, uint64_t len) {
+  uint64_t end;
+  if (addr < 0x1000 || len == 0 || len > (16u * 1024u * 1024u)) return -1;
+  end = addr + len;
+  if (end < addr || end >= 0x800000000000ULL) return -1; /* non-canonical */
+  for (uint64_t a = addr & P2M_MASK; a < end; a += 0x200000ULL) {
+    if (a >= VMM_IDENTITY_END && vmm_map_mmio(a) != 0) return -1;
+  }
+  return 0;
 }
 
 /* EBDA pointer lives at 0x40E (first KB, identity-mapped).
@@ -54,15 +71,26 @@ static uint64_t find_rsdp(void) {
 }
 
 static const uint8_t *find_table(uint64_t rsdt, int is_xsdt, const char *sig) {
-  const uint8_t *h = (const uint8_t *)(uintptr_t)rsdt;
-  uint32_t len = rd32(h + 4);
-  if (len < 36) return 0;
-  uint32_t count = (len - 36) / (is_xsdt ? 8u : 4u);
+  const uint8_t *h;
+  uint32_t len, count;
+  if (map_range(rsdt, 64) != 0) return 0;
+  h = (const uint8_t *)(uintptr_t)rsdt;
+  len = rd32(h + 4);
+  if (len < 36 || len > (16u * 1024u * 1024u)) return 0;
+  if (map_range(rsdt, len) != 0) return 0;
+  count = (len - 36) / (is_xsdt ? 8u : 4u);
   for (uint32_t i = 0; i < count; i++) {
     uint64_t addr = is_xsdt ? rd64(h + 36 + i * 8) : rd32(h + 36 + i * 4);
-    if (addr < 0x1000 || addr >= 0x40000000ULL) continue; /* outside our map */
-    const uint8_t *t = (const uint8_t *)(uintptr_t)addr;
-    if (naos_memcmp(t, sig, 4) == 0) return t;
+    uint32_t tlen;
+    const uint8_t *t;
+    if (addr < 0x1000 || addr >= 0x800000000000ULL) continue;
+    if (map_range(addr, 64) != 0) continue;
+    t = (const uint8_t *)(uintptr_t)addr;
+    if (naos_memcmp(t, sig, 4) != 0) continue;
+    tlen = rd32(t + 4);
+    if (tlen < 36 || tlen > (16u * 1024u * 1024u)) continue;
+    if (map_range(addr, tlen) != 0) continue;
+    return t;
   }
   return 0;
 }
@@ -108,8 +136,10 @@ static int parse_s5(const uint8_t *dsdt, uint32_t aml_len,
 int acpi_init(uint64_t rsdp_hint) {
   g_ok = 0;
   uint64_t rsdp = 0;
-  /* Prefer the bootloader's UEFI configuration-table address. */
-  if (rsdp_hint >= 0x1000 && rsdp_hint < 0x400000000ULL) {
+  /* Prefer the bootloader's UEFI configuration-table address (it may sit
+   * above the identity map: map before touching). */
+  if (rsdp_hint >= 0x1000 && rsdp_hint < 0x800000000000ULL &&
+      map_range(rsdp_hint, 64) == 0) {
     const uint8_t *p = (const uint8_t *)(uintptr_t)rsdp_hint;
     if (naos_memcmp(p, "RSD PTR ", 8) == 0 &&
         (checksum(p, 20) || checksum(p, 36)))
@@ -158,16 +188,28 @@ int acpi_init(uint64_t rsdp_hint) {
     }
   }
   uint32_t dsdt = rd32(facp + 40);
-  uint64_t x_dsdt = (facp_len >= 132) ? rd64(facp + 124) : 0;
+  /* X_DSDT is the second u64 after the 3 reserved bytes: 124 is
+   * X_FIRMWARE_CTRL (a FACS pointer — reading it gave "no DSDT"). */
+  uint64_t x_dsdt = (facp_len >= 140) ? rd64(facp + 132) : 0;
   const uint8_t *d = 0;
   uint64_t daddr = x_dsdt ? x_dsdt : dsdt;
-  if (daddr && daddr < 0x100000000ULL) d = (const uint8_t *)(uintptr_t)daddr;
-  if (!d || naos_memcmp(d, "DSDT", 4) != 0) {
+  uint32_t dlen = 0;
+  if (!daddr || map_range(daddr, 64) != 0) daddr = 0;
+  else {
+    d = (const uint8_t *)(uintptr_t)daddr;
+    if (naos_memcmp(d, "DSDT", 4) != 0) daddr = 0;
+    else {
+      dlen = rd32(d + 4);
+      if (dlen < 36 || dlen > (16u * 1024u * 1024u) ||
+          map_range(daddr, dlen) != 0)
+        daddr = 0;
+    }
+  }
+  if (!daddr) {
     kprintf("acpi: no DSDT\n");
     return 0;
   }
-  uint32_t dlen = rd32(d + 4);
-  if (dlen < 36 || !checksum(d, dlen)) {
+  if (!checksum(d, dlen)) {
     kprintf("acpi: bad DSDT\n");
     return 0;
   }

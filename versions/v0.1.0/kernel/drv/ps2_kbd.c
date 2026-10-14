@@ -9,11 +9,11 @@
 
 static volatile uint8_t g_buf[KBUF_SIZE];
 static volatile uint32_t g_head, g_tail;
-static int g_shift, g_caps, g_ext;
+static int g_shift, g_caps, g_ext, g_ctrl;
 
 void kbd_init(void) {
   g_head = g_tail = 0;
-  g_shift = g_caps = g_ext = 0;
+  g_shift = g_caps = g_ext = g_ctrl = 0;
   /* Drain stale controller output. */
   for (int i = 0; i < 64; i++) {
     if ((naos_inb(KBD_STAT) & 0x01) == 0) break;
@@ -128,7 +128,11 @@ int kbd_getc(void) {
     if (sc == 0xE0) { g_ext = 1; continue; } /* extended: prefix for next */
     if (g_ext) {
       g_ext = 0;
-      if (sc & 0x80) continue; /* extended release: ignore */
+      if (sc & 0x80) {
+        if ((sc & 0x7F) == 0x1D) g_ctrl = 0; /* ext ctrl release (USB) */
+        continue; /* extended release: ignore */
+      }
+      if (sc == 0x1D) { g_ctrl = 1; continue; } /* ext ctrl press */
       int code = translate_ext(sc);
       if (code) return code;
       continue;
@@ -136,11 +140,20 @@ int kbd_getc(void) {
     if (sc & 0x80) { /* release */
       uint8_t code = (uint8_t)(sc & 0x7F);
       if (code == 0x2A || code == 0x36) g_shift = 0;
+      if (code == 0x1D) g_ctrl = 0;
       continue;
     }
     if (sc == 0x2A || sc == 0x36) { g_shift = 1; continue; }
+    if (sc == 0x1D) { g_ctrl = 1; continue; } /* ctrl press */
     if (sc == 0x3A) { g_caps = !g_caps; continue; }
     char c = translate(sc);
+    /* Ctrl+letter yields the control code (Ctrl+C = cancel); any other
+     * Ctrl combo is ignored so it can never type by accident. */
+    if (g_ctrl && c != 0) {
+      if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
+        return (char)(c & 0x1F);
+      continue;
+    }
     if (c) return c;
     /* non-printable make code: ignore */
   }

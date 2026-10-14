@@ -306,6 +306,7 @@ static void dispatch(char *line) {
     kprintf("  font [small|normal|big|3|4]\n");
     kprintf("                     console size, saved\n");
     kprintf("  PgUp/PgDn scroll the screen back and forth\n");
+    kprintf("  Ctrl+C             cancel the current line\n");
     kprintf("  reboot             restart the computer\n");
     kprintf("  shutdown           stop the computer\n");
     kprintf("  <cmd> > <file>     save command output to a file\n");
@@ -770,6 +771,13 @@ static size_t read_line(char *line) {
       continue;
     }
     fb_scroll_live(); /* any other key rejoins the live tail */
+    if (c == 0x03) { /* Ctrl+C: cancel the line, fresh prompt */
+      erase_chars(n);
+      n = 0;
+      nav = -1;
+      kprintf("^C\n");
+      continue;
+    }
     if (c == KBD_UP || c == KBD_DOWN) {
       if (g_hcount == 0) continue;
       int oldest = (g_hcount < HIST_N) ? 0 : (g_hcount - HIST_N);

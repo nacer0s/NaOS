@@ -64,12 +64,12 @@ void kmain(naos_bootinfo_t *bi) {
   pic_init();
   pit_init(100);
   kbd_init();
-  acpi_init(g_bi.rsdp);
   pmm_init(g_bi.mmap_addr, g_bi.mmap_count, g_bi.mmap_entry_size,
            (uint64_t)(uintptr_t)kernel_end);
   kmalloc_init();
   vmm_init(g_bi.fb_base, g_bi.fb_size);
   sched_init((uint64_t)(uintptr_t)stack_top);
+  acpi_init(g_bi.rsdp); /* after VMM: high tables get mapped on demand */
   ramblk_init(g_bi.rd_base, g_bi.rd_pages); /* live image, maybe absent */
   if (ramblk_ok()) {
     kprintf("ramdisk: live image staged%s\n",

@@ -562,6 +562,19 @@ Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 * Two cursor complaints from real iron: (1) delete left a second static bar — `fb_backspace` cleared the flag without erasing the old cell before moving left; now it hides first, so the flag⟺pixels invariant holds on every path (verified: typed/erased text exact, single bar at the live cell). (2) blink felt slow/frozen — the ladder is now PIT-led at exact 500ms phases (auto-checked each RTC second, RTC parity when PIT stalls, TSC bit 31 with no clock), evaluated every loop pass so floods can't starve it.
 * Measurement note for future screenshots: ~1s-spaced captures period-lock with a 500ms blink and read as static; serial tick logs (exactly 100/s) plus off-resonance captures are the ground truth. Both used here.
 
+### Fixed - 2026-10-14 (ACPI tables above 1G + real shutdown)
+
+* `shutdown` printed `no ACPI, halting` even where ACPI exists: `find_table` skipped every table at/above 1G (`addr >= 0x40000000`), but modern firmware (and QEMU with 2G+ RAM) parks tables high — reproduced with `-m 8G` (`no FACP`). Fix: `map_range()` maps table pages on demand via the VMM (bounds + canonical + size guards), applied to the RSDP hint, RSDT/XSDT walk, and DSDT; `acpi_init` moved after `vmm_init` in `kmain` (mappings need PMM + own tables). Second bug in the same walk: X_DSDT lives at FACP+132, not +124 (that offset is X_FIRMWARE_CTRL — a FACS pointer misread as "no DSDT").
+* Verified: `-m 8G` goes `no FACP` → `poweroff ready (PM1 604/0 SLP 0/0)`; `shutdown` powers QEMU off (process exits, no screenshot left); `-m 256M` path unchanged. Boxes genuinely without FACP keep the honest halt message.
+
+### Added - 2026-10-14 (Ctrl+C cancels the line)
+
+* PS/2 (`0x1D`) and USB-HID (`E01D`) Ctrl tracking in `ps2_kbd.c`; Ctrl+letter yields the control code, other Ctrl combos are ignored so they can never type. `read_line` treats `0x03` as cancel: erases the echo, prints `^C`, fresh prompt (works in `edit` too, same input loop). `help` documents it. Verified: typed `ab`, Ctrl+C left a clean `^C` line, `version` ran fine after.
+
+### Fixed - 2026-10-14 (website fully responsive)
+
+* Tables (boot chain, memory map, syscalls, limits, requirements) now scroll inside their `.tbl` wrappers instead of blowing out narrow screens (the reported issue); the one bare table got wrapped too. File-tree rows ellipsis long names; activity stats stack to one column under 520px with correct dividers. Everything else already collapsed properly (verified by audit: grids, modals, nav burger, clamp headings, wrapping buttons). No pixel screenshots available on this machine — fixes are additive (media queries + overflow containers) and desktop-neutral.
+
 ### Fixed - 2026-10-14 (cursor rewritten stateless from scratch)
 
 * Root causes found, not patched around: (1) `read_line` parked inside blocking `kbd_getc` on any input glitch, freezing the old loop-tied blink eval — the blink now also runs from the PIT tick (IRQ, independent of input state) and from `getc`'s own wait; (2) the old show/hide flag could strand pixels, doubling the bar — there is no flag anymore.
