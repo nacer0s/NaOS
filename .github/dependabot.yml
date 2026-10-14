@@ -1,11 +1,17 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Dependabot: intentionally disabled.
+#
+# NaOS has no supported package ecosystem: the OS is freestanding C + Make
+# (cross-compiler in /opt/cross, no vendored deps), tools use Python stdlib
+# only, and the website is vanilla HTML/CSS/JS with no npm packages.
+# There is nothing for Dependabot to update, so there is no `updates:` block.
+# If a package manifest ever lands (e.g. .github/workflows/*.yml for
+# Actions, package.json, requirements.txt), re-enable with e.g.:
+#
+# version: 2
+# updates:
+#   - package-ecosystem: "github-actions"
+#     directory: "/"
+#     schedule:
+#       interval: "weekly"
 
 version: 2
-updates:
-  - package-ecosystem: "" # See documentation for possible values
-    directory: "/" # Location of package manifests
-    schedule:
-      interval: "weekly"

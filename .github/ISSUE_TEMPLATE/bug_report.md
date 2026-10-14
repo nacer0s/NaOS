@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Report something broken in NaOS (wrong output, hang, crash, boot failure)
 title: ''
 labels: ''
 assignees: ''
@@ -8,31 +8,36 @@ assignees: ''
 ---
 
 **Describe the bug**
-A clear and concise description of what the bug is.
+A clear and concise description of what is broken. One problem per issue.
+
+**NaOS version**
+Output of the `version` command (e.g. `NaOS v0.1.0`), or the ISO/IMG file
+name and date you booted.
+
+**Where it runs**
+- [ ] QEMU (command line you used + OVMF path)
+- [ ] VirtualBox (machine type — must be 64-bit — EFI on/off)
+- [ ] Real hardware (board/CPU, disk, keyboard, UEFI or legacy, Secure Boot state)
 
 **To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+Commands typed, in order (e.g. `list`, `run /PROGS/hello.elf`):
+1. ...
+2. ...
+
+**Boot messages (for boot/file/disk bugs)**
+Press `PgUp` to scroll back and copy the relevant lines
+(`ramdisk:`, `blk:`, `fat:`, `ahci:`/`nvme:`, ...), or attach a photo.
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
+What you expected to happen.
 
-**Screenshots**
-If applicable, add screenshots to help explain your problem.
-
-**Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
-
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
+**Photos / serial log**
+A screen photo or the QEMU serial log (`-serial file:boot.txt`) helps
+more than anything for firmware and driver bugs.
 
 **Additional context**
-Add any other context about the problem here.
+Anything else: did it work on an older ISO? Does it work in QEMU but not
+on hardware (or vice versa)?
+
+**Security bugs:** do NOT open a public issue — see SECURITY.md (report to
+nacer.eddine.dev@gmail.com or contact@nacer0s.com first).
