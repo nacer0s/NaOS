@@ -110,7 +110,7 @@ You must know before trying:
 | Storage | AHCI port 0 → NVMe (admin 64 + IO 32 queues) → ATA PIO (LBA0 signature probe) → live RAM copy of the boot volume |
 | Network | E1000 · ARP/ICMP/UDP(68→67 DHCP)/TCP client+server(1460 MSS, 4KB window) · DNS:53 · default 10.0.2.15/24 via 10.0.2.2 |
 | Filesystems | FAT32 R/W (LFN reads) · NaOS-FS v1 reader (512B blocks, 16×32B dirents, depth 8) |
-| Artifacts | BOOTX64.EFI ~17 KB · KERNEL.ELF ~155 KB · DATA.NAFS 61,952 B · ESP 64MiB · ISO ~64.6 MiB |
+| Artifacts | BOOTX64.EFI ~17 KB · KERNEL.ELF ~160 KB · DATA.NAFS 94,720 B · ESP 64MiB · ISO ~64.6 MiB |
 
 ## Layout
 

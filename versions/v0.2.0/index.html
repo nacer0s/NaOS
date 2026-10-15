@@ -177,7 +177,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
         <div class="cmd"><code>copy · move · rename</code><span>organize files and folders</span></div>
         <div class="cmd"><code>edit &lt;file&gt;</code><span>built-in text editor</span></div>
         <div class="cmd"><code>delete &lt;path&gt;</code><span>remove files and folders</span></div>
-        <div class="cmd"><code>nafs mount/list/read</code><span>browse NaOS-FS images</span></div>
+        <div class="cmd"><code>nafs mount/list/read/write/delete</code><span>read + write NaOS-FS images</span></div>
       </div>
       <div class="ref-group"><h3><i class="fa-solid fa-gears"></i>System</h3>
         <div class="cmd"><code>help · version · about</code><span>commands · build date · developer</span></div>
@@ -211,7 +211,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
 <section id="run">
   <div class="wrap">
     <div class="sec-head"><span class="idx">03/</span><h2>Run it</h2></div>
-    <p class="sec-sub">Inside this folder. One-time host setup is in the <a href="README.md" data-raw="https://raw.githubusercontent.com/nacer0s/NaOS/main/versions/v0.2.0/README.md" data-gh="https://github.com/nacer0s/NaOS/blob/main/versions/v0.2.0/README.md" data-title="v0.2.0 README.md">README</a>. Artifact sizes: BOOTX64.EFI ~17 KB · KERNEL.ELF ~155 KB · DATA.NAFS 61,952 B · ESP 64MiB · ISO ~64.6 MiB.</p>
+    <p class="sec-sub">Inside this folder. One-time host setup is in the <a href="README.md" data-raw="https://raw.githubusercontent.com/nacer0s/NaOS/main/versions/v0.2.0/README.md" data-gh="https://github.com/nacer0s/NaOS/blob/main/versions/v0.2.0/README.md" data-title="v0.2.0 README.md">README</a>. Artifact sizes: BOOTX64.EFI ~17 KB · KERNEL.ELF ~160 KB · DATA.NAFS 94,720 B · ESP 64MiB · ISO ~64.6 MiB.</p>
     <div class="copy-row"><button class="copy" data-copy="runCmd"><i class="fa-regular fa-copy"></i> copy</button></div>
 <pre class="code" id="runCmd">export PATH=/opt/cross/bin:$PATH
 ./tools/check.sh   <span class="c"># verify tools + OVMF</span>

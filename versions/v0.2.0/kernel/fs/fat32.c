@@ -117,11 +117,13 @@ static void to_83(const char *in, uint8_t out[11]) {
   }
 }
 
-/* ---- Long filenames (read-only) ----
+/* ---- Long filenames ----
  * LFN chunks (attr 0x0F) precede their short entry, last chunk first
  * (seq | 0x40). We collect UTF-16 units, then render ASCII ('?' beyond).
  * A chain is only trusted when complete, ordered, and its checksum
- * matches the short entry. Write paths still use short names only. */
+ * matches the short entry. Lookups match the long name first (8.3 as
+ * fallback); overwrites preserve the on-disk short name so existing
+ * aliases stay valid. New entries are still short-name only. */
 #define LFN_CHUNKS_MAX 20
 static uint16_t g_lfn_u[LFN_CHUNKS_MAX * 13];
 static int g_lfn_total; /* chunks in chain, 0 = none */
@@ -217,11 +219,13 @@ static int dir_find(uint32_t dir_clus, const uint8_t name83[11],
 }
 
 /* Find entry by long or short name. comp_up is the uppercased path
- * component (up to 255 chars); name83 is its 8+3 form for fallback. */
+ * component (up to 255 chars); name83 is its 8+3 form for fallback.
+ * Slot outputs (NULL-tolerant) locate the dirent for in-place updates. */
 static int dir_find_name(uint32_t dir_clus, const char *comp_up,
                          const uint8_t name83[11],
                          uint32_t *clus_out, uint32_t *size_out,
-                         uint8_t *attr_out) {
+                         uint8_t *attr_out, uint32_t *slot_lba,
+                         uint32_t *slot_off) {
   static uint8_t sec[512];
   uint32_t clus = dir_clus;
   lfn_reset();
@@ -250,6 +254,8 @@ static int dir_find_name(uint32_t dir_clus, const char *comp_up,
           *clus_out = ((uint32_t)d->clus_hi << 16) | d->clus_lo;
           *size_out = d->size;
           *attr_out = d->attr;
+          if (slot_lba) *slot_lba = lba;
+          if (slot_off) *slot_off = (uint32_t)e * 32;
           return 0;
         }
       }
@@ -285,7 +291,7 @@ static int resolve(const char *path, uint32_t *clus_out, uint32_t *size_out,
     to_83(comp, f83);
     uint32_t c, sz;
     uint8_t at;
-    if (dir_find_name(dir, comp, f83, &c, &sz, &at) != 0) return -1;
+    if (dir_find_name(dir, comp, f83, &c, &sz, &at, 0, 0) != 0) return -1;
     if (*path == '\0') {
       *clus_out = c;
       *size_out = sz;
@@ -414,9 +420,11 @@ static void free_chain(uint32_t clus) {
   }
 }
 
-/* Split path into parent dir cluster + 8.3 leaf. Returns 0 ok. */
+/* Split path into parent dir cluster + 8.3 leaf. up_full (char[256] or
+ * NULL) also gets the uppercased full leaf for LFN-aware matching (the
+ * 8.3 form is lossy: "DATA~1" never equals "DATA.NAFS"). Returns 0 ok. */
 static int resolve_parent(const char *path, uint32_t *parent_out,
-                          uint8_t leaf83[11]) {
+                          uint8_t leaf83[11], char *up_full) {
   while (*path == '/' || *path == '\\') path++;
   /* Find last separator. */
   const char *last = 0;
@@ -440,21 +448,35 @@ static int resolve_parent(const char *path, uint32_t *parent_out,
       to_83(comp, f83);
       uint32_t c, sz;
       uint8_t at;
-      if (dir_find_name(dir, comp, f83, &c, &sz, &at) != 0) return -1;
+      if (dir_find_name(dir, comp, f83, &c, &sz, &at, 0, 0) != 0) return -1;
       if (!(at & ATTR_DIR)) return -1;
       dir = (c == 0) ? g_root_clus : c;
     }
     path = last + 1;
   }
-  int n = 0;
+  const char *lstart = path; /* leaf start, before consuming below */
+  char full[256];
+  int n = 0, m = 0;
   while (*path && n < 15) leaf[n++] = *path++;
   leaf[n] = '\0';
   if (n == 0) return -1;
   if ((leaf[0] == '.' && leaf[1] == '\0') ||
       (leaf[0] == '.' && leaf[1] == '.' && leaf[2] == '\0'))
     return -2; /* refuse . and .. */
+  /* Full uppercased leaf (no 15-char truncation): the 8.3 form and the
+   * LFN compare key both derive from this, so long names mangle
+   * symmetrically on every path (lookup, overwrite, rename). */
+  while (lstart[m] && m < 255) {
+    char c = lstart[m];
+    full[m] = (c >= 'a' && c <= 'z') ? (char)(c - 32) : c;
+    m++;
+  }
+  full[m] = '\0';
   str_up(leaf);
-  to_83(leaf, leaf83);
+  to_83(full, leaf83);
+  if (up_full) {
+    for (int k = 0; k <= m; k++) up_full[k] = full[k];
+  }
   *parent_out = dir;
   return 0;
 }
@@ -511,12 +533,27 @@ static int write_entry(uint32_t lba, uint32_t off, const uint8_t name83[11],
   return blk_write(lba, 1, sec);
 }
 
+/* Refresh cluster+size of an existing entry, preserving its on-disk
+ * 8.3 name (and any LFN aliases checksummed against it). Overwrites
+ * must come through here; write_entry renames as a side effect. */
+static int update_entry(uint32_t lba, uint32_t off, uint32_t clus,
+                        uint32_t size) {
+  static uint8_t sec[512];
+  if (blk_read(lba, 1, sec) != 0) return -1;
+  dirent_t *d = (dirent_t *)(sec + off);
+  d->clus_hi = (uint16_t)((clus >> 16) & 0xFFFFu);
+  d->clus_lo = (uint16_t)(clus & 0xFFFFu);
+  d->size = size;
+  return blk_write(lba, 1, sec);
+}
+
 int fat_write(const char *path, const void *buf, uint32_t len) {
   uint32_t parent;
   uint8_t leaf[11];
+  char up[256];
   if (!g_ok || !path || (!buf && len > 0)) return -1;
-  if (resolve_parent(path, &parent, leaf) != 0) return -2;
-  return fat_write_parts(parent, leaf, buf, len);
+  if (resolve_parent(path, &parent, leaf, up) != 0) return -2;
+  return fat_write_parts(parent, leaf, up, buf, len);
 }
 
 /* Append bytes to a file (created when missing). One call = one consistent
@@ -532,10 +569,11 @@ int fat_append(const char *path, const void *buf, uint32_t len) {
   uint32_t per_clus = 512u * g_spc;
   const uint8_t *src = (const uint8_t *)buf;
   int have_old;
+  char up[256];
   if (!g_ok || !path || (!buf && len > 0)) return -1;
-  if (resolve_parent(path, &parent, leaf) != 0) return -2;
-  have_old = (dir_find(parent, leaf, &clus, &size, &attr, &slot_lba,
-                       &slot_off) == 0);
+  if (resolve_parent(path, &parent, leaf, up) != 0) return -2;
+  have_old = (dir_find_name(parent, up, leaf, &clus, &size, &attr, &slot_lba,
+                            &slot_off) == 0);
   if (have_old && (attr & ATTR_DIR)) return -6;
   if (len == 0) {
     if (have_old) return 0; /* touch existing: nothing to do */
@@ -598,8 +636,13 @@ int fat_append(const char *path, const void *buf, uint32_t len) {
     }
   }
 done:
-  /* Single entry update (also repairs size after a partial failure). */
-  if (write_entry(slot_lba, slot_off, leaf, 0x20, first, size + written) != 0)
+  /* Single entry update (also repairs size after a partial failure).
+   * Existing entries keep their on-disk name (LFN aliases stay valid). */
+  if (have_old) {
+    if (update_entry(slot_lba, slot_off, first, size + written) != 0)
+      return -4;
+  } else if (write_entry(slot_lba, slot_off, leaf, 0x20, first,
+                         size + written) != 0)
     return -4;
   return (written == len) ? 0 : -3;
 }
@@ -607,7 +650,7 @@ done:
 /* Write (create-or-truncate) by parent cluster + 8.3 leaf. Shared by
  * path writes and file-descriptor flushes. */
 int fat_write_parts(uint32_t parent, const uint8_t leaf83[11],
-                    const void *buf, uint32_t len) {
+                    const char *up_full, const void *buf, uint32_t len) {
   static uint8_t sec[512];
   uint32_t old_clus = 0, old_size = 0, slot_lba = 0, slot_off = 0;
   uint8_t old_attr = 0;
@@ -617,9 +660,13 @@ int fat_write_parts(uint32_t parent, const uint8_t leaf83[11],
   const uint8_t *src = (const uint8_t *)buf;
   uint32_t per_clus = 512u * g_spc;
   if (!g_ok || (!buf && len > 0)) return -1;
-  /* Existing entry? Truncate it (dirs cannot be overwritten). */
-  have_old = (dir_find(parent, leaf83, &old_clus, &old_size, &old_attr,
-                       &slot_lba, &slot_off) == 0);
+  /* Existing entry? Truncate it (dirs cannot be overwritten). LFN-aware:
+   * up_full names the same file its LFN alias does (no duplicates). */
+  have_old = ((up_full ?
+               dir_find_name(parent, up_full, leaf83, &old_clus, &old_size,
+                             &old_attr, &slot_lba, &slot_off) :
+               dir_find(parent, leaf83, &old_clus, &old_size, &old_attr,
+                        &slot_lba, &slot_off)) == 0);
   if (have_old && (old_attr & ATTR_DIR)) return -6;
   if (have_old && old_clus >= 2) free_chain(old_clus);
   /* Allocate chain for the new content. */
@@ -658,8 +705,63 @@ int fat_write_parts(uint32_t parent, const uint8_t leaf83[11],
       if (first >= 2) free_chain(first);
       return -5;
     }
+    return write_entry(slot_lba, slot_off, leaf83, 0x20, first, len);
   }
-  return write_entry(slot_lba, slot_off, leaf83, 0x20, first, len);
+  /* Overwrite: same file, same name (LFN aliases stay valid). */
+  return update_entry(slot_lba, slot_off, first, len);
+}
+
+/* Retire a dirent plus its LFN alias run (marks 0xE5). Long names made
+ * by other systems live as LFN slots + one 8.3 entry; wiping only the
+ * 8.3 slot leaves a stale alias that still resolves the old long name,
+ * so delete/rename must come through here. wipe=0 counts only.
+ * Returns the alias run length (0 for plain 8.3 entries). */
+static int wipe_alias(uint32_t dir_clus, uint32_t slot_lba, uint32_t slot_off,
+                      int wipe) {
+  static uint8_t sec[512];
+  uint32_t run_lba[LFN_CHUNKS_MAX];
+  uint32_t run_off[LFN_CHUNKS_MAX];
+  int run = 0;
+  uint32_t clus = dir_clus;
+  while (clus >= 2) {
+    for (uint32_t s = 0; s < g_spc; s++) {
+      uint32_t lba = clus_to_lba(clus) + s;
+      if (blk_read(lba, 1, sec) != 0) return 0;
+      for (int e = 0; e < 16; e++) {
+        const uint8_t *en = sec + e * 32;
+        if (lba == slot_lba && (uint32_t)e * 32 == slot_off) goto found;
+        if (en[0] == 0x00) return 0; /* entry gone: nothing to do */
+        if (en[11] == ATTR_LFN) {
+          if (en[0] == 0xE5 || en[0] == 0x00) {
+            run = 0;
+          } else if (run < LFN_CHUNKS_MAX) {
+            run_lba[run] = lba;
+            run_off[run] = (uint32_t)e * 32;
+            run++;
+          } else {
+            run = 0; /* overlong chain: invalid, like lfn_feed */
+          }
+        } else if (en[0] != 0xE5) {
+          run = 0; /* live 8.3/label entry breaks the run */
+        }
+      }
+    }
+    uint32_t nx = fat_next(clus);
+    if (nx == 0) return 0;
+    clus = nx;
+  }
+  return 0;
+found:;
+  if (!wipe) return run;
+  for (int k = 0; k < run; k++) {
+    if (blk_read(run_lba[k], 1, sec) != 0) return run;
+    sec[run_off[k]] = 0xE5;
+    if (blk_write(run_lba[k], 1, sec) != 0) return run;
+  }
+  if (blk_read(slot_lba, 1, sec) != 0) return run;
+  sec[slot_off] = 0xE5;
+  if (blk_write(slot_lba, 1, sec) != 0) return run;
+  return run;
 }
 
 int fat_mkdir(const char *path) {
@@ -667,10 +769,11 @@ int fat_mkdir(const char *path) {
   if (!g_ok || !path) return -1;
   uint32_t parent;
   uint8_t leaf[11];
-  if (resolve_parent(path, &parent, leaf) != 0) return -2;
+  char up[256];
+  if (resolve_parent(path, &parent, leaf, up) != 0) return -2;
   uint32_t dummy_c, dummy_s, slot_lba, slot_off;
   uint8_t dummy_a;
-  if (dir_find(parent, leaf, &dummy_c, &dummy_s, &dummy_a, 0, 0) == 0)
+  if (dir_find_name(parent, up, leaf, &dummy_c, &dummy_s, &dummy_a, 0, 0) == 0)
     return -6; /* exists */
   uint32_t nc = fat_alloc();
   if (nc == 0) return -3;
@@ -704,10 +807,12 @@ int fat_delete(const char *path) {
   if (!g_ok || !path) return -1;
   uint32_t parent;
   uint8_t leaf[11];
-  if (resolve_parent(path, &parent, leaf) != 0) return -2;
+  char up[256];
+  if (resolve_parent(path, &parent, leaf, up) != 0) return -2;
   uint32_t clus, size, slot_lba, slot_off;
   uint8_t attr;
-  if (dir_find(parent, leaf, &clus, &size, &attr, &slot_lba, &slot_off) != 0)
+  if (dir_find_name(parent, up, leaf, &clus, &size, &attr, &slot_lba,
+                    &slot_off) != 0)
     return -2;
   if (attr & ATTR_DIR) {
     /* Refuse non-empty directories (allow only . and ..). */
@@ -731,9 +836,7 @@ int fat_delete(const char *path) {
     }
   checked:;
   }
-  if (blk_read(slot_lba, 1, sec) != 0) return -4;
-  sec[slot_off] = 0xE5;
-  if (blk_write(slot_lba, 1, sec) != 0) return -4;
+  wipe_alias(parent, slot_lba, slot_off, 1); /* entry + stale LFN aliases */
   if (clus >= 2) free_chain(clus);
   return 0;
 }
@@ -921,10 +1024,12 @@ int fat_copy(const char *src, const char *dst) {
   if (resolve(src, &sc, &ss, &sa) != 0) return -2;
   uint32_t dp;
   uint8_t leaf[11];
-  if (resolve_parent(dst, &dp, leaf) != 0) return -2;
+  char up[256];
+  if (resolve_parent(dst, &dp, leaf, up) != 0) return -2;
   uint32_t dc, ds;
   uint8_t da;
-  if (dir_find(dp, leaf, &dc, &ds, &da, 0, 0) == 0) return -6; /* exists */
+  if (dir_find_name(dp, up, leaf, &dc, &ds, &da, 0, 0) == 0)
+    return -6; /* exists */
   if ((sa & ATTR_DIR)) {
     /* Refuse to copy a folder into itself: walk dst_parent's .. chain. */
     uint32_t up = dp;
@@ -954,24 +1059,37 @@ int fat_rename(const char *oldpath, const char *newpath) {
   if (!g_ok || !oldpath || !newpath) return -1;
   uint32_t oparent;
   uint8_t old83[11];
-  if (resolve_parent(oldpath, &oparent, old83) != 0) return -2;
+  char oldup[256];
+  if (resolve_parent(oldpath, &oparent, old83, oldup) != 0) return -2;
   uint32_t oclus, osize, oslot_lba, oslot_off;
   uint8_t oattr;
-  if (dir_find(oparent, old83, &oclus, &osize, &oattr,
-               &oslot_lba, &oslot_off) != 0)
+  if (dir_find_name(oparent, oldup, old83, &oclus, &osize, &oattr,
+                    &oslot_lba, &oslot_off) != 0)
     return -2;
   uint32_t nparent;
   uint8_t new83[11];
-  if (resolve_parent(newpath, &nparent, new83) != 0) return -2;
+  char newup[256];
+  if (resolve_parent(newpath, &nparent, new83, newup) != 0) return -2;
   uint32_t dc, ds;
   uint8_t da;
-  if (dir_find(nparent, new83, &dc, &ds, &da, 0, 0) == 0) return -6;
+  if (dir_find_name(nparent, newup, new83, &dc, &ds, &da, 0, 0) == 0)
+    return -6;
   if (nparent == oparent) {
-    /* Same folder: rewrite the name in place (files and full folders). */
-    if (blk_read(oslot_lba, 1, sec) != 0) return -4;
-    naos_memcpy(sec + oslot_off, new83, 11);
-    if (blk_write(oslot_lba, 1, sec) != 0) return -4;
-    return 0;
+    /* Same folder: plain 8.3 entries are rewritten in place. Entries
+     * carrying LFN aliases are retired and re-created 8.3-only (the
+     * create path emits no LFN slots: same fidelity as make-file). */
+    if (wipe_alias(oparent, oslot_lba, oslot_off, 0) == 0) {
+      if (blk_read(oslot_lba, 1, sec) != 0) return -4;
+      naos_memcpy(sec + oslot_off, new83, 11);
+      if (blk_write(oslot_lba, 1, sec) != 0) return -4;
+      return 0;
+    }
+    wipe_alias(oparent, oslot_lba, oslot_off, 1);
+    {
+      uint32_t slot_lba, slot_off;
+      if (dir_alloc_slot(nparent, &slot_lba, &slot_off) != 0) return -5;
+      return write_entry(slot_lba, slot_off, new83, oattr, oclus, osize);
+    }
   }
   /* Different folder: re-link the entry (no data moves). Folders get
    * their ".." repointed; refuse to move a folder into itself. */
@@ -1037,9 +1155,7 @@ int fat_rename(const char *oldpath, const char *newpath) {
     }
   }
   /* New link is good: drop the old entry (data stays where it is). */
-  if (blk_read(oslot_lba, 1, sec) != 0) return -4;
-  sec[oslot_off] = 0xE5;
-  if (blk_write(oslot_lba, 1, sec) != 0) return -4;
+  wipe_alias(oparent, oslot_lba, oslot_off, 1);
   return 0;
 }
 
@@ -1098,9 +1214,9 @@ int fat_fopen_r(const char *path, uint32_t *clus_out, uint32_t *size_out) {
 }
 
 int fat_parent_leaf(const char *path, uint32_t *parent_out,
-                    uint8_t leaf83_out[11]) {
+                    uint8_t leaf83_out[11], char *up_out) {
   if (!g_ok || !path) return -1;
-  return resolve_parent(path, parent_out, leaf83_out);
+  return resolve_parent(path, parent_out, leaf83_out, up_out);
 }
 
 /* Positional read: [pos, pos+len) of the file, capped by size. */

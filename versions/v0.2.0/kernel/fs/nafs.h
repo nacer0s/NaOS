@@ -1,4 +1,7 @@
-/* NaOS-FS v1 ("NaOS File System"): tiny read-only guest filesystem.
+/* NaOS-FS v1 ("NaOS File System"): tiny guest filesystem. Writable since
+ * v0.2.0 (`nafs_write`/`nafs_delete`); no format change, no free-space
+ * metadata — allocation scans used ranges, the superblock checksum is
+ * maintained on every change.
  * Canonical on-disk spec (mirrored in tools/mknafs.py — keep in sync):
  *   blocks are 512B, little-endian. Block 0 = superblock:
  *     u32 magic 0x5346414E, u32 version 1, u32 total_blocks,
@@ -20,5 +23,9 @@ int nafs_mount(const char *fatpath);
 int nafs_list(const char *dirpath);
 /* Print a text file (16KB cap). 0 ok. */
 int nafs_read(const char *filepath);
+/* Import a FAT file into the image (create or replace). 0 ok. */
+int nafs_write(const char *fatpath, const char *nafs_path);
+/* Delete a file (or an empty dir) from the image. 0 ok. */
+int nafs_delete(const char *nafs_path);
 
 #endif /* NAOS_NAFS_H */

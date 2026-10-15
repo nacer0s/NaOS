@@ -6,6 +6,24 @@ All notable changes to NaOS are documented here. Format follows [Keep a Changelo
 
 Goal: v0.1.0 shell + files + network, plus a TCP server — `serve` answers HTTP from NaOS itself.
 
+### Added - 2026-10-15 (NaOS-FS writes)
+
+* `nafs write <fat-src> </nafs-dst>` + `nafs delete </file>` (`kernel/fs/nafs.c`, shell + usage): whole-image edit in the 128KB `g_img` work buffer, source streamed via `fat_read_at`, allocation by first-fit `alloc_run` over `mark_used`, write-back through `fat_write` + quiet remount (revalidates checksum, refreshes the host cluster). Limits: image cap 128KB, read cap 16KB.
+* Allocator fix: `mark_used` now marks directory blocks, root included — before, the root block itself (root@120 in the demo) was handed out and a write clobbered the directory it lived in.
+* `tools/mknafs.py --pad 64`: the demo image ships 64 free blocks (185 total, 94,720 B, label `NaFSdemo`) so writes have headroom; a fully-packed image would (correctly) refuse with `no contiguous space`.
+* Verified: QEMU `mount/list/read/write/read/delete` round-trip, then host-parsed `DATA.NAFS` (magic `NAFS`, v1, 185 blocks, checksum OK, `note.txt` present-then-absent, originals intact).
+
+### Fixed - 2026-10-15 (FAT writes match long filenames)
+
+* Reads were LFN-aware but every write path compared the lossy 8.3 form only, so touching `DATA.NAFS` or `long-file-name-demo.txt` by its real name created a duplicate entry (two live `DATA~1`-style dirents, original orphaned). Now `resolve_parent` also returns the uppercased FULL leaf (`char[256]`), `dir_find_name` reports the match slot, and overwrite/append/delete/mkdir-exists/copy-dst/rename lookups all match the long name first (8.3 fallback). File-descriptor flushes carry the full leaf too (`ffd_t.up[256]` via `fat_parent_leaf`).
+* Overwrites preserve the on-disk 8.3 name (new `update_entry`: cluster+size only) instead of rewriting it — the old code re-mangled the name (`DATA.NAFS` → `DATA.NAF` on screen) and orphaned the LFN checksum. Delete/rename retire the LFN alias slots with the entry (new `wipe_alias`), so no checksum ghosts survive; renaming an LFN-carrying entry re-creates it 8.3-only (same fidelity as `make-file`, names still resolve through symmetric mangling).
+* 8.3 fallback fixed at the root: the leaf was truncated to 15 chars before mangling (`LONG-FIL` with blank extension); both the 8.3 form and the compare key now derive from the full leaf.
+* Verified: 21-assertion QEMU serial+HMP battery ALL PASS (LFN read/overwrite/rename/delete, NaFS round-trip, version/list regressions) + host sector forensics: one live `DATA~1` + valid LFN, three `0xE5` marks, zero duplicates, zero ghosts.
+
+### Fixed - 2026-10-15 (`version` build date went stale)
+
+* `build/version.h` had an order-only prerequisite, so it was generated once and never refreshed — today's binary still reported `build 2026-10-14`. New `FORCE` prerequisite re-runs the recipe every build; `cmp`-swap keeps the mtime (and all kernel objects) stable when nothing changed. `version` now prints the real build day.
+
 ### Added - 2026-10-14 (TCP listen + serve)
 
 * `tcp_listen(port)` / `tcp_accept(listen, timeout)` (`kernel/net/tcp.c/.h`): passive open with a 3-deep SYN backlog. Tick context only queues SYNs (no ARP, no blocking — IRQ-safe); `accept()` (command context) ARPs the peer, completes the handshake (SYN-ACK + RTO resends) and returns an ESTABLISHED child. New states `LISTEN`/`SYN_Q`/`SYN_RCVD`; TCB pool 2 → 6; MSS option parsing shared with the client path; unknown ports keep the silent drop (no RST storms); `tcp_close` on a listener drops unaccepted handshakes.

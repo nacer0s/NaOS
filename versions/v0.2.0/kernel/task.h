@@ -20,6 +20,7 @@ typedef struct {
   uint32_t pos;
   uint32_t parent;     /* write mode: flush target */
   uint8_t leaf[11];
+  char up[256];        /* write mode: uppercased full leaf (LFN-aware flush) */
   char *wbuf;          /* write mode: staged content */
   uint32_t wlen;
 } ffd_t;

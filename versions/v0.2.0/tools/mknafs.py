@@ -56,6 +56,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--label", required=True)
+    ap.add_argument("--pad", type=int, default=0,
+                    help="append N free (zero) blocks for later writes")
     ap.add_argument("stagedir")
     a = ap.parse_args()
     if len(a.label.encode("utf-8", "ignore")) > 15:
@@ -90,6 +92,10 @@ def main():
         return start
 
     root = alloc_dir(build_dir(a.stagedir))
+    if a.pad < 0:
+        die("--pad must be >= 0")
+    for _ in range(a.pad):
+        blocks.append(bytes(512))  # free: type byte 0, unreferenced
     total = len(blocks)
     sb = bytearray(512)
     struct.pack_into("<IIII", sb, 0, MAGIC, VERSION, total, root)

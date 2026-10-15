@@ -16,14 +16,17 @@ int fat_read(const char *path, void *buf, uint32_t cap, uint32_t *size_out);
 int fat_write(const char *path, const void *buf, uint32_t len);
 /* Append bytes (create when missing). One consistent update. 0 ok. */
 int fat_append(const char *path, const void *buf, uint32_t len);
-/* Same, by parent cluster + 8.3 leaf (for file-descriptor flushes). */
+/* Same, by parent cluster + 8.3 leaf (for file-descriptor flushes).
+ * up_full is the uppercased full leaf for LFN-aware matching (NULL ok,
+ * legacy exact-8.3 match only). */
 int fat_write_parts(uint32_t parent, const uint8_t leaf83[11],
-                    const void *buf, uint32_t len);
+                    const char *up_full, const void *buf, uint32_t len);
 /* Open a file for reading: cluster + size. Files only (no dirs). */
 int fat_fopen_r(const char *path, uint32_t *clus_out, uint32_t *size_out);
-/* Resolve a parent dir + 8.3 leaf for creation (create-ok check). */
+/* Resolve a parent dir + 8.3 leaf for creation (create-ok check).
+ * up_out (char[256] or NULL) also gets the uppercased full leaf. */
 int fat_parent_leaf(const char *path, uint32_t *parent_out,
-                    uint8_t leaf83_out[11]);
+                    uint8_t leaf83_out[11], char *up_out);
 /* Positional read of an open file. Returns bytes read, <0 on error. */
 int fat_read_at(uint32_t clus, uint32_t size, uint32_t pos, void *buf,
                 uint32_t len);

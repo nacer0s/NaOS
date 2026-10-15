@@ -292,6 +292,8 @@ static void dispatch(char *line) {
     kprintf("  nafs mount <img>   mount a NaOS-FS image file\n");
     kprintf("  nafs list [/dir]   list the mounted NaOS-FS\n");
     kprintf("  nafs read </file>  print a NaOS-FS text file\n");
+    kprintf("  nafs write <s> <d> copy a FAT file into the image\n");
+    kprintf("  nafs delete </file> delete a file from the image\n");
     kprintf("  net                show network status\n");
     kprintf("  ping <ip>          ping an IPv4 address\n");
     kprintf("  dhcp               get IP via DHCP (proves UDP)\n");
@@ -626,10 +628,15 @@ static void dispatch(char *line) {
     else if (n >= 1 && naos_strcmp(w[0], "list") == 0)
       nafs_list(n >= 2 ? w[1] : "/");
     else if (n >= 2 && naos_strcmp(w[0], "read") == 0) nafs_read(w[1]);
+    else if (n >= 3 && naos_strcmp(w[0], "write") == 0)
+      nafs_write(w[1], w[2]);
+    else if (n >= 2 && naos_strcmp(w[0], "delete") == 0) nafs_delete(w[1]);
     else {
       kprintf("usage: nafs mount <fat-path-to-image>\n");
       kprintf("       nafs list [/dir]\n");
       kprintf("       nafs read </file>\n");
+      kprintf("       nafs write <fat-src> </nafs-dst>\n");
+      kprintf("       nafs delete </file>\n");
     }
   } else if (after(line, "net")) {
     net_status();

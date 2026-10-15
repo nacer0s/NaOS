@@ -335,7 +335,7 @@ static int sys_open(isr_frame_t *f) {
   {
     uint32_t parent, c = 0, sz = 0;
     uint8_t leaf[11];
-    int r = fat_parent_leaf(kpath, &parent, leaf);
+    int r = fat_parent_leaf(kpath, &parent, leaf, fd->up);
     if (r != 0) return -2;
     if (mode == 2 && fat_fopen_r(kpath, &c, &sz) == 0) {
       uint64_t b;
@@ -436,8 +436,8 @@ static int sys_close(isr_frame_t *f) {
   fd = &g_tasks[g_current].fds[id];
   if (!fd->used) return -1;
   if (fd->write)
-    r = fat_write_parts(fd->parent, fd->leaf, fd->wbuf ? fd->wbuf : "",
-                         fd->wlen);
+    r = fat_write_parts(fd->parent, fd->leaf, fd->up,
+                         fd->wbuf ? fd->wbuf : "", fd->wlen);
   if (fd->wbuf) {
     pmm_free_page((uint64_t)(uintptr_t)fd->wbuf);
     fd->wbuf = 0;

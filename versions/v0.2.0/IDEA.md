@@ -188,6 +188,7 @@ File creation rule: ESP is built with `mformat -i build/NaOS.v0.1.0.img -F -v Na
 * **Live matrix round 7 (2026-10-13):** `nafs` unusable live (no `/DATA.NAFS` on ramdisk). Fixed in `mkramdisk.sh`. Then verified EVERY command on CD-only boot: files, run/tasks/kill, nafs, net (dhcp/ping/dns/fetch/update±sha vs host server), settings/font, redirect, fdemo, reboot, shutdown-halt. `crash` skipped (reboots by design). Next: reflash ISO, whole system usable live.
 * **Updater phase 1 DONE (2026-10-11):** DNS client, SHA-256, `fat_append`, `update check/get` against any HTTP server (+ `dns`, `about` commands); downloads verified by hash, human reviews before apply.
 * **NaOS-FS reader DONE (2026-10-11):** NaOS File System v1 spec + `mknafs.py` + read-only driver (`nafs mount/list/read`); `/DATA.NAFS` ships on the ESP. Writes are v0.2.0.
+* **NaOS-FS writes DONE (2026-10-15):** `nafs write <fat-src> </nafs-dst>` + `nafs delete` (whole-image edit, FAT write-back, quiet remount); allocator marks dir blocks incl. root; demo image padded to 185 blocks (`--pad 64`, 94,720 B) so writes have headroom. FAT side is LFN-aware (see CHANGELOG 2026-10-15).
 * Post-v0.1.0 (v0.2.0 ideas, not in scope): TCP listen/accept, DNS resolver, 4K-LBA NVMe, MSI-X interrupts, file seek/append syscalls for programs, more NICs (virtio-net), real-hardware boot reports.
 
 ## 10. v0.2.0 Plan: TCP listen + server (in development)
