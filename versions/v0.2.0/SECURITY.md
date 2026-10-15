@@ -3,8 +3,13 @@
 Global policy (how to report, response times): [../../SECURITY.md](../../SECURITY.md).
 Rule: report privately, get credited publicly.
 
-## What's new (and least audited) in v0.1.0
+## What's new (and least audited) in v0.2.0
 
+- **TCP server** (`tcp_listen`/`tcp_accept`, `net_serve`): the `serve`
+  command answers unauthenticated HTTP from the wire. SYN backlog is capped
+  (3, 30s stale drop), request paths reject `..`, served paths are bounded
+  — but this is listening code facing strangers: fuzz it mentally first,
+  and do not serve secrets (plaintext HTTP, no TLS).
 - **Network parsers** (`kernel/net/`): ARP/IP/ICMP/UDP/TCP/DHCP read
   untrusted bytes from the wire. Lengths are bounds-checked and TCP sequence
   math is wrap-aware, but this is the youngest code — fuzz it mentally first.

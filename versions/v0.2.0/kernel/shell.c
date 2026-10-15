@@ -302,6 +302,8 @@ static void dispatch(char *line) {
     kprintf("                     download a file, verify its hash\n");
     kprintf("  fetch <ip> <port> </path>\n");
     kprintf("                     HTTP/1.0 GET over TCP, print body\n");
+    kprintf("  serve <port> </file>\n");
+    kprintf("                     serve one file over HTTP, then done\n");
     kprintf("  settings           show prompt and colors (/SETTINGS.TXT)\n");
     kprintf("  font [small|normal|big|3|4]\n");
     kprintf("                     console size, saved\n");
@@ -694,6 +696,18 @@ static void dispatch(char *line) {
       if (!ok)
         kprintf("usage: fetch <a.b.c.d> <port> </path>\n");
     }
+  } else if ((a = after(line, "serve"))) {
+    char *w[4];
+    int n = split_words((char *)a, w, 4);
+    unsigned port = 0;
+    if (n == 2) {
+      for (const char *p = w[0]; *p >= '0' && *p <= '9'; p++)
+        port = port * 10 + (unsigned)(*p - '0');
+    }
+    if (n == 2 && port > 0 && port < 65536 && w[1][0] == '/')
+      net_serve((uint16_t)port, w[1]);
+    else
+      kprintf("usage: serve <port> </file>\n");
   } else if ((a = after(line, "ping"))) {
     uint32_t ip;
     if (*a == '\0' || net_parse_ip(a, &ip) != 0)

@@ -8,11 +8,12 @@
 #include "../lib/kprintf.h"
 #include "../../common/cstring.h"
 
-#define TCP_N 2
+#define TCP_N 6
 #define TCP_RXB 4096
-#define TCP_MSS 1460
 #define TCP_RTO 100 /* 1s @100Hz */
 #define TCP_TRIES 4
+#define TCP_BACKLOG 3     /* queued SYNs per listen port */
+#define TCP_ACCEPT_STALE 3000 /* 30s: drop unaccepted handshakes */
 
 #define TF_FIN 0x01u
 #define TF_SYN 0x02u
@@ -25,6 +26,9 @@
 #define TS_FIN_WAIT 3
 #define TS_CLOSE_WAIT 4
 #define TS_LAST_ACK 5
+#define TS_LISTEN 6    /* passive open: owns a port, no peer */
+#define TS_SYN_Q 7     /* SYN queued in tick context (peer MAC unknown yet) */
+#define TS_SYN_RCVD 8  /* SYN-ACK sent, waiting for the ACK */
 
 typedef struct {
   int used;
@@ -41,6 +45,7 @@ typedef struct {
   uint32_t oseg_seq, oseg_len;
   uint64_t oseg_t0;
   int oseg_fin;
+  uint64_t q_t0; /* SYN_Q arrival / SYN_RCVD handshake start (stale reap) */
 } tcp_t;
 
 static tcp_t g_t[TCP_N];
@@ -86,6 +91,166 @@ static int tcb_alloc(void) {
     }
   }
   return -1;
+}
+
+/* Peer MSS option scan (kind 2). Default TCP_MSS, clamped [536, TCP_MSS]. */
+static uint16_t peer_mss(const uint8_t *seg, uint32_t hlen) {
+  uint32_t o = 20;
+  while (o < hlen) {
+    uint8_t k = seg[o];
+    uint8_t l;
+    if (k == 0) break;
+    if (k == 1) {
+      o++;
+      continue;
+    }
+    if (o + 1 >= hlen) break;
+    l = seg[o + 1];
+    if (l < 2 || o + l > hlen) break;
+    if (k == 2 && l == 4) {
+      uint16_t m = pkt_get16(seg + o + 2);
+      if (m < 536) m = 536;
+      if (m > TCP_MSS) m = TCP_MSS;
+      return m;
+    }
+    o += l;
+  }
+  return TCP_MSS;
+}
+
+int tcp_listen(uint16_t port) {
+  int t;
+  if (port == 0) return -1;
+  for (int i = 0; i < TCP_N; i++)
+    if (g_t[i].used && g_t[i].lport == port) return -1; /* in use */
+  t = tcb_alloc();
+  if (t < 0) return -1;
+  g_t[t].lip = net_ip();
+  g_t[t].lport = port;
+  g_t[t].state = TS_LISTEN;
+  return t;
+}
+
+/* Drop handshake slots (SYN_Q/SYN_RCVD) older than TCP_ACCEPT_STALE. */
+static void reap_stale(uint16_t lport, uint64_t now) {
+  for (int i = 0; i < TCP_N; i++) {
+    if (g_t[i].used && g_t[i].lport == lport &&
+        (g_t[i].state == TS_SYN_Q || g_t[i].state == TS_SYN_RCVD) &&
+        now - g_t[i].q_t0 >= TCP_ACCEPT_STALE) {
+      g_t[i].used = 0;
+      g_t[i].state = 0;
+    }
+  }
+}
+
+static int backlog_used(uint16_t lport) {
+  int n = 0;
+  for (int i = 0; i < TCP_N; i++)
+    if (g_t[i].used && g_t[i].lport == lport &&
+        (g_t[i].state == TS_SYN_Q || g_t[i].state == TS_SYN_RCVD)) n++;
+  return n;
+}
+
+int tcp_accept(int listen, uint64_t timeout_ticks) {
+  uint64_t t0 = pit_ticks();
+  uint16_t lport;
+  if (listen < 0 || listen >= TCP_N || !g_t[listen].used ||
+      g_t[listen].state != TS_LISTEN)
+    return -1;
+  lport = g_t[listen].lport;
+  for (;;) {
+    int q = -1;
+    uint64_t f;
+    uint64_t best = ~(uint64_t)0;
+    uint32_t rip;
+    uint16_t rport;
+    uint8_t mac[6];
+    uint32_t iss;
+    /* Oldest queued SYN on this port (guarded: tick owns arrivals). */
+    f = pkt_irq_save();
+    reap_stale(lport, pit_ticks());
+    for (int i = 0; i < TCP_N; i++) {
+      if (g_t[i].used && g_t[i].state == TS_SYN_Q && g_t[i].lport == lport &&
+          g_t[i].q_t0 < best) {
+        best = g_t[i].q_t0;
+        q = i;
+      }
+    }
+    pkt_irq_restore(f);
+    if (q < 0) {
+      if (pit_ticks() - t0 >= timeout_ticks) return -1;
+      net_poll();
+      continue;
+    }
+    /* Snapshot peer, then ARP in command context (never in IRQ). */
+    f = pkt_irq_save();
+    if (!g_t[q].used || g_t[q].state != TS_SYN_Q || g_t[q].lport != lport) {
+      pkt_irq_restore(f);
+      continue; /* raced away: rescan */
+    }
+    rip = g_t[q].rip;
+    rport = g_t[q].rport;
+    pkt_irq_restore(f);
+    if (net_resolve(net_nexthop(rip), mac) != 0) {
+      f = pkt_irq_save(); /* unreachable: drop the slot, keep waiting */
+      if (g_t[q].used && g_t[q].state == TS_SYN_Q) {
+        g_t[q].used = 0;
+        g_t[q].state = 0;
+      }
+      pkt_irq_restore(f);
+      continue;
+    }
+    f = pkt_irq_save();
+    if (!g_t[q].used || g_t[q].state != TS_SYN_Q || g_t[q].lport != lport ||
+        g_t[q].rip != rip || g_t[q].rport != rport) {
+      pkt_irq_restore(f);
+      continue; /* slot died or recycled mid-ARP: rescan */
+    }
+    naos_memcpy(g_t[q].rmac, mac, 6);
+    iss = (uint32_t)((pit_ticks() * 2654435761u) ^ 0xA11CEu ^ (q * 131u));
+    g_t[q].snd_una = iss;
+    g_t[q].snd_nxt = iss + 1;
+    g_t[q].q_t0 = pit_ticks();
+    g_t[q].state = TS_SYN_RCVD;
+    seg_send(&g_t[q], iss, TF_SYN | TF_ACK, 0, 0);
+    pkt_irq_restore(f);
+    /* Wait for the ACK, resending SYN-ACK per RTO. */
+    for (int i = 0; i < TCP_TRIES; i++) {
+      uint64_t w0 = pit_ticks();
+      int done = 0, dead = 0;
+      while (pit_ticks() - w0 < TCP_RTO && !done && !dead) {
+        net_poll();
+        f = pkt_irq_save();
+        if (!g_t[q].used) dead = 1;
+        else if (g_t[q].state == TS_EST) done = 1;
+        else if (g_t[q].state != TS_SYN_RCVD || g_t[q].rip != rip ||
+                 g_t[q].rport != rport)
+          dead = 1;
+        pkt_irq_restore(f);
+      }
+      if (done) return q;
+      if (dead) break; /* slot gone: rescan outer */
+      f = pkt_irq_save();
+      if (g_t[q].used && g_t[q].state == TS_SYN_RCVD && g_t[q].rip == rip &&
+          g_t[q].rport == rport) {
+        seg_send(&g_t[q], g_t[q].snd_una, TF_SYN | TF_ACK, 0, 0);
+        g_t[q].q_t0 = pit_ticks();
+      } else {
+        dead = 1;
+      }
+      pkt_irq_restore(f);
+      if (dead) break;
+    }
+    /* Handshake failed or timed out: free the slot, keep waiting. */
+    f = pkt_irq_save();
+    if (g_t[q].used && g_t[q].state == TS_SYN_RCVD && g_t[q].rip == rip &&
+        g_t[q].rport == rport) {
+      g_t[q].used = 0;
+      g_t[q].state = 0;
+    }
+    pkt_irq_restore(f);
+    if (pit_ticks() - t0 >= timeout_ticks) return -1;
+  }
 }
 
 int tcp_connect(uint32_t ip, uint16_t port) {
@@ -194,6 +359,20 @@ int tcp_close(int t) {
   uint64_t f, t0;
   if (t < 0 || t >= TCP_N || !g_t[t].used) return -1;
   c = &g_t[t];
+  if (c->state == TS_LISTEN) {
+    /* Listener done: drop it plus unaccepted handshakes. Established
+     * children are independent and run on. */
+    for (int i = 0; i < TCP_N; i++) {
+      if (g_t[i].used && g_t[i].state == TS_SYN_Q &&
+          g_t[i].lport == c->lport) {
+        g_t[i].used = 0;
+        g_t[i].state = 0;
+      }
+    }
+    c->used = 0;
+    c->state = 0;
+    return 0;
+  }
   if (c->state == TS_EST) {
     f = pkt_irq_save();
     seg_send(c, c->snd_nxt, TF_FIN | TF_ACK, 0, 0);
@@ -240,14 +419,59 @@ void tcp_on_seg(uint32_t srcip, const uint8_t *seg, uint32_t len) {
   if (hlen < 20 || hlen > len) return;
   dlen = len - hlen;
   for (int i = 0; i < TCP_N; i++) {
-    if (g_t[i].used && g_t[i].lport == dport && g_t[i].rport == sport &&
-        g_t[i].rip == srcip) {
+    if (g_t[i].used && g_t[i].state != TS_LISTEN &&
+        g_t[i].state != TS_SYN_Q && g_t[i].lport == dport &&
+        g_t[i].rport == sport && g_t[i].rip == srcip) {
       c = &g_t[i];
       break;
     }
   }
   if (!c) {
-    /* Unknown port: RST. (Rare; keep quiet to avoid storms.) */
+    int i, li, q;
+    if (flags & TF_RST) {
+      /* Client aborting a queued handshake: free the slot. */
+      for (i = 0; i < TCP_N; i++) {
+        if (g_t[i].used && g_t[i].state == TS_SYN_Q &&
+            g_t[i].lport == dport && g_t[i].rport == sport &&
+            g_t[i].rip == srcip) {
+          g_t[i].used = 0;
+          g_t[i].state = 0;
+        }
+      }
+      return;
+    }
+    if ((flags & (TF_SYN | TF_ACK)) != TF_SYN) return; /* not ours: drop */
+    /* Passive open: queue into a listener's backlog. Tick context: no
+     * ARP, no blocking — accept() completes the handshake later. */
+    li = -1;
+    for (i = 0; i < TCP_N; i++) {
+      if (g_t[i].used && g_t[i].state == TS_LISTEN && g_t[i].lport == dport) {
+        li = i;
+        break;
+      }
+    }
+    if (li < 0) return; /* nobody listens: silent drop, no RST storms */
+    for (i = 0; i < TCP_N; i++) {
+      if (g_t[i].used && g_t[i].state == TS_SYN_Q &&
+          g_t[i].lport == dport && g_t[i].rport == sport &&
+          g_t[i].rip == srcip)
+        return; /* duplicate SYN: already queued */
+    }
+    f = pkt_irq_save();
+    reap_stale(dport, pit_ticks());
+    q = (backlog_used(dport) >= TCP_BACKLOG) ? -1 : tcb_alloc();
+    if (q >= 0) {
+      g_t[q].lip = net_ip();
+      g_t[q].lport = dport;
+      g_t[q].rip = srcip;
+      g_t[q].rport = sport;
+      naos_memset(g_t[q].rmac, 0, 6); /* resolved at accept() */
+      g_t[q].rcv_nxt = seq + 1;
+      g_t[q].mss = peer_mss(seg, hlen);
+      g_t[q].q_t0 = pit_ticks();
+      g_t[q].state = TS_SYN_Q;
+    }
+    pkt_irq_restore(f);
     return;
   }
   if (flags & TF_RST) {
@@ -270,33 +494,17 @@ void tcp_on_seg(uint32_t srcip, const uint8_t *seg, uint32_t len) {
         ack == c->snd_nxt) {
       c->rcv_nxt = seq + 1;
       c->snd_una = ack;
-      /* Peer MSS option? scan for kind 2. */
-      if (hlen > 20) {
-        uint32_t o = 20;
-        while (o < hlen) {
-          uint8_t k = seg[o];
-          uint8_t l;
-          if (k == 0) break;
-          if (k == 1) {
-            o++;
-            continue;
-          }
-          if (o + 1 >= hlen) break;
-          l = seg[o + 1];
-          if (l < 2 || o + l > hlen) break;
-          if (k == 2 && l == 4) {
-            uint16_t m = pkt_get16(seg + o + 2);
-            if (m < 536) m = 536;
-            if (m > TCP_MSS) m = TCP_MSS;
-            c->mss = m;
-          }
-          o += l;
-        }
-      }
+      c->mss = peer_mss(seg, hlen);
       c->state = TS_EST;
       seg_send(c, c->snd_nxt, TF_ACK, 0, 0);
     }
     break;
+  case TS_SYN_RCVD:
+    if (!((flags & TF_ACK) && ack == c->snd_nxt)) break; /* wait for it */
+    c->state = TS_EST;
+    /* This segment may already carry the first data/FIN: run it through
+     * the ESTABLISHED input below. */
+    __attribute__((fallthrough));
   case TS_EST:
   case TS_FIN_WAIT:
     if (dlen > 0 && c->rx_len < TCP_RXB) {

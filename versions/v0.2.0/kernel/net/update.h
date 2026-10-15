@@ -13,5 +13,8 @@ int update_check(const char *host, uint16_t port, const char *mpath);
 /* Download remotepath -> local FAT path, optional hex sha256 ("" skips). */
 int update_get(const char *host, uint16_t port, const char *remotepath,
                const char *localpath, const char *sha_hex);
+/* Serve one local FAT file over HTTP/1.0 to a single connection, then
+ * done (single-shot, like fetch's mirror). 0 ok. */
+int net_serve(uint16_t port, const char *localpath);
 
 #endif /* NAOS_UPDATE_H */

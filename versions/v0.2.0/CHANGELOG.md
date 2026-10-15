@@ -6,6 +6,12 @@ All notable changes to NaOS are documented here. Format follows [Keep a Changelo
 
 Goal: v0.1.0 shell + files + network, plus a TCP server — `serve` answers HTTP from NaOS itself.
 
+### Added - 2026-10-14 (TCP listen + serve)
+
+* `tcp_listen(port)` / `tcp_accept(listen, timeout)` (`kernel/net/tcp.c/.h`): passive open with a 3-deep SYN backlog. Tick context only queues SYNs (no ARP, no blocking — IRQ-safe); `accept()` (command context) ARPs the peer, completes the handshake (SYN-ACK + RTO resends) and returns an ESTABLISHED child. New states `LISTEN`/`SYN_Q`/`SYN_RCVD`; TCB pool 2 → 6; MSS option parsing shared with the client path; unknown ports keep the silent drop (no RST storms); `tcp_close` on a listener drops unaccepted handshakes.
+* `serve <port> </file>` (`net_serve`, shell + help): serves one FAT file over HTTP/1.0 per call, then back to the prompt. Validates the request line (non-GET → 400, wrong path → 404, `..` refused), streams in 1460B chunks, `Content-Type` by extension. 60s accept timeout.
+* Verified on QEMU (CD boot, host client via user-net forward): 200 + exact bytes, 400, 404, listener/TCB recycling across invocations, client `fetch` unregressed. Docs: command count 39 → 40, SECURITY server surface, site command row.
+
 Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 
 ### Added - 2026-10-09
