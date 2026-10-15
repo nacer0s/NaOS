@@ -2,7 +2,7 @@
 
 A usable x86_64 UEFI operating system built **from scratch (0), in C** — no GRUB, no Limine, no gnu-efi, no prebuilt bootloader or kernel. See [IDEA.md](IDEA.md) for the full vision, tree, flow and workflow.
 
-Status: **v0.2.0 in development** — everything in v0.1.0, plus a TCP server (`listen`/`accept`, serve files over HTTP). `BOOTX64.EFI` loads `KERNEL.ELF`, and the kernel runs
+Status: **v0.2.0 in development** — everything in v0.1.0, plus a TCP server (`listen`/`accept`, serve files over HTTP) and NaOS-FS writes (`nafs write`/`delete`). `BOOTX64.EFI` loads `KERNEL.ELF`, and the kernel runs
 a `NaOS>` shell on a black GOP console with PS/2 and USB-HID keyboard input
 (`help version about clear print memory test crash list go read make-folder make-file copy move rename edit delete run tasks kill time date uptime beep pci settings font usb nvme nafs net dhcp dns fetch serve update ping reboot shutdown`), own paging (PML4),
 a `kmalloc`/`kfree` heap, an AHCI/NVMe/ATA+FAT32 filesystem (read+write, long filenames), and preemptive multitasking
@@ -10,7 +10,7 @@ a `kmalloc`/`kfree` heap, an AHCI/NVMe/ATA+FAT32 filesystem (read+write, long fi
 disk-loaded ELF programs with file I/O (`open`/`read`/`write`/`close`, stdout on fd 1)). Command output redirects with `<cmd> > <file>`, and `/SETTINGS.TXT`
 styles the prompt and console colors. Networking (E1000 ARP + ICMP ping, UDP sockets, DHCP client,
 TCP client with HTTP `fetch`, TCP server with `serve`, default 10.0.2.15/24)
-works under QEMU user-net: add `-netdev user,id=n0 -device e1000,netdev=n0` to `make run`,
+works under QEMU user-net out of the box (q35 defaults to an E1000 on user-net, same as `make run`),
 then `net`, `dhcp`, `ping 10.0.2.2`, and `fetch 10.0.2.2 8099 /path` (needs an HTTP server on the host).
 
 ## Download & website
@@ -58,7 +58,7 @@ x86_64-elf-gcc --version
 export PATH=/opt/cross/bin:$PATH
 ./tools/check.sh     # verify every tool + OVMF firmware
 make all             # build/BOOTX64.EFI + build/KERNEL.ELF
-make esp             # build/NaOS.v0.1.0.img — 64M FAT with \EFI\BOOT\BOOTX64.EFI + \NaOS\KERNEL.ELF
+make esp             # build/NaOS.v0.2.0.img — 64M FAT with \EFI\BOOT\BOOTX64.EFI + \NaOS\KERNEL.ELF
 make run             # QEMU + OVMF, boots to kernel banner
 make clean           # full rebuild (also needed automatically via header deps)
 ```
@@ -66,7 +66,7 @@ make clean           # full rebuild (also needed automatically via header deps)
 QEMU command used by `make run`:
 
 ```
-qemu-system-x86_64 -machine q35 -drive if=pflash,format=raw,unit=0,file="<...>/edk2-x86_64-code.fd",readonly=on -drive format=raw,file=build/NaOS.v0.1.0.img -m 256M -serial stdio
+qemu-system-x86_64 -machine q35 -drive if=pflash,format=raw,unit=0,file="<...>/edk2-x86_64-code.fd",readonly=on -drive format=raw,file=build/NaOS.v0.2.0.img -m 256M -serial stdio
 ```
 
 `-machine q35` is required: stock QEMU boots the `pc` machine, whose OVMF drops to the EFI shell instead of auto-booting us.
@@ -81,7 +81,7 @@ BOOTX64.EFI
 ## ISO + real hardware
 
 ```bash
-make iso      # build/NaOS.v0.1.0.iso — El Torito UEFI boot image (needs xorriso)
+make iso      # build/NaOS.v0.2.0.iso — El Torito UEFI boot image (needs xorriso)
 make run-iso  # boot the ISO itself in QEMU (-cdrom) to verify it
 ```
 
@@ -89,7 +89,7 @@ Note: a CD/USB-booted system runs a **live RAM session** — `BOOTX64.EFI` copie
 
 VirtualBox: create the VM as type **Other/Unknown (64-bit)** (a 32-bit type disables Long Mode and no 64-bit OS can boot), enable EFI (Settings → System → Motherboard → **Enable EFI**), attach the ISO as optical drive — BIOS mode reports "no bootable medium" for this UEFI-only image. QEMU needs OVMF (`-drive if=pflash,...,file=edk2-x86_64-code.fd`), same as `make run-iso`.
 
-Flash to USB (Windows: [Rufus](https://rufus.ie) in **DD mode**; Linux: `dd if=build/NaOS.v0.1.0.iso of=/dev/sdX bs=4M status=progress`), then boot the stick as a **UEFI** device.
+Flash to USB (Windows: [Rufus](https://rufus.ie) in **DD mode**; Linux: `dd if=build/NaOS.v0.2.0.iso of=/dev/sdX bs=4M status=progress`), then boot the stick as a **UEFI** device.
 
 You must know before trying:
 
@@ -107,9 +107,9 @@ You must know before trying:
 | Tasks / scheduler | 16 slots · 50ms quantum @100Hz · 8 fds per task (opens from 3, 2048B per call, 4KB write buffer) |
 | Memory | kernel @`0x100000` · programs @`0x40100000` · PML4 identity 0–1G · ~52K free pages/256M |
 | Console | 12x24 + 8x16 cells, scales 1–4 · 256-line ring · history 16 · cursor ~1Hz blink |
-| Storage | AHCI port 0 → NVMe (admin 64 + IO 32 queues) → ATA PIO (LBA0 signature probe) → live RAM copy of the boot volume |
+| Storage | AHCI port 0 → NVMe (admin depth 64 + IO depth 32, one queue pair) → ATA PIO (LBA0 signature probe) → live RAM copy of the boot volume |
 | Network | E1000 · ARP/ICMP/UDP(68→67 DHCP)/TCP client+server(1460 MSS, 4KB window) · DNS:53 · default 10.0.2.15/24 via 10.0.2.2 |
-| Filesystems | FAT32 R/W (LFN reads) · NaOS-FS v1 reader (512B blocks, 16×32B dirents, depth 8) |
+| Filesystems | FAT32 R/W (LFN reads + LFN-aware writes) · NaOS-FS v1 read/write (512B blocks, 16×32B dirents, depth 8, 128KB image cap) |
 | Artifacts | BOOTX64.EFI ~17 KB · KERNEL.ELF ~160 KB · DATA.NAFS 94,720 B · ESP 64MiB · ISO ~64.6 MiB |
 
 ## Layout
@@ -119,7 +119,7 @@ boot/uefi/    own uefi.h + efi_main + ELF/GOP/file/exit-services loader (no gnu-
 common/       bootinfo handoff, serial, cstring, io — shared, freestanding
 kernel/       entry.asm (MS→SysV RCX shim) + link.ld + kmain + fb/kprintf/font
 progs/        user programs (ELF binaries for ring 3) + crt0 + user link script
-tools/        check.sh, mkesp.sh, mkiso.sh, font_render.py, build-cross.sh
+tools/        check.sh, mkesp.sh, mkiso.sh, mknafs.py, font_render.py, build-cross.sh
 build/        generated, gitignored (binaries, ESP image, ISO, font header)
 index.html    v0.2.0 website (vanilla HTML/CSS/JS, offline-safe)
 ```

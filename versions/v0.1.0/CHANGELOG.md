@@ -2,7 +2,7 @@
 
 All notable changes to NaOS are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/); versioning follows SemVer once `v0.1.0` tags. Until then everything lands under `Unreleased`.
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-14
 
 Goal: power-on → UEFI → C kernel → `NaOS>` shell (plain-English commands).
 

@@ -157,7 +157,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
       <div class="feat"><span class="n">01</span><h3><i class="fa-solid fa-terminal"></i>40 plain-English commands</h3><p>Files, system, network, power — with history, scrollback, font sizes, output redirect and a themeable prompt.</p></div>
       <div class="feat"><span class="n">02</span><h3><i class="fa-solid fa-hard-drive"></i>AHCI · NVMe · ATA + FAT32 + live RAM copy</h3><p>One block layer, writable FAT32, long filenames. Boots from SATA, NVMe — or straight off the ISO with files.</p></div>
       <div class="feat"><span class="n">03</span><h3><i class="fa-solid fa-code-fork"></i>fork() with CoW</h3><p>Ring-3 programs, private address spaces, preemptive scheduler, copy-on-write fork, file syscalls.</p></div>
-      <div class="feat"><span class="n">04</span><h3><i class="fa-solid fa-network-wired"></i>TCP/IP + DHCP + DNS + updater</h3><p>E1000 driver, ARP/ping, UDP sockets, DHCP lease at boot, DNS, TCP client with HTTP <code>fetch</code> and hash-verified <code>update</code>.</p></div>
+      <div class="feat"><span class="n">04</span><h3><i class="fa-solid fa-network-wired"></i>TCP server + client</h3><p>E1000 driver, ARP/ping, UDP sockets, DHCP lease at boot, DNS — TCP server (<code>listen</code>/<code>accept</code>, one file per <code>serve</code> call) plus the TCP client with HTTP <code>fetch</code> and hash-verified <code>update</code>.</p></div>
       <div class="feat"><span class="n">05</span><h3><i class="fa-solid fa-keyboard"></i>PS/2 + USB HID</h3><p>Polled XHCI stack with hotplug rescan, classic PS/2 fallback, PC-speaker beeps.</p></div>
       <div class="feat"><span class="n">06</span><h3><i class="fa-solid fa-compact-disc"></i>ISO export + auto-boot</h3><p>El Torito UEFI image, shell auto-boot fallback, Rufus/DD-mode guide for real hardware.</p></div>
     </div>
@@ -184,7 +184,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
         <div class="cmd"><code>run &lt;program&gt;</code><span>run a disk ELF program</span></div>
         <div class="cmd"><code>tasks · kill &lt;id&gt;</code><span>process list · stop a task</span></div>
         <div class="cmd"><code>time · date · uptime</code><span>CMOS clock readings</span></div>
-        <div class="cmd"><code>memory · test</code><span>memory stats · self-tests</span></div>
+        <div class="cmd"><code>memory · test · crash</code><span>stats · self-tests · fault test</span></div>
         <div class="cmd"><code>pci · settings</code><span>PCI scan · prompt/theme view</span></div>
         <div class="cmd"><code>clear · print · beep</code><span>screen · echo text · speaker</span></div>
         <div class="cmd"><code>font [small|normal|big|3|4]</code><span>console size, saved</span></div>
@@ -228,7 +228,7 @@ make run-iso       <span class="c"># needs xorriso: boot the ISO itself</span></
       <tr><td>NASM · Make · mtools · Python</td><td class="mono">3.02 · 4.4.1 · 4.0.49 · 3.14.8</td><td>stubs · build · FAT image · font + scripts</td></tr>
     </table>
     </div>
-    <div class="limits"><i class="fa-solid fa-triangle-exclamation"></i>&nbsp;<b>Honest limits:</b> TCP client only (no listen yet) · NVMe needs 512B namespaces · CD/USB boot is a live RAM session (files work, writes vanish on reboot; give the VM ≥256MB) · UEFI-only, Secure Boot off.</div>
+    <div class="limits"><i class="fa-solid fa-triangle-exclamation"></i>&nbsp;<b>Honest limits:</b> TCP serve handles one connection per call (3-deep SYN backlog) · NVMe needs 512B namespaces (polled, no MSI-X/4K yet) · NaOS-FS: 128KB images max, new files 8.3-only · CD/USB boot is a live RAM session (files work, writes vanish on reboot; give the VM ≥256MB) · UEFI-only, Secure Boot off.</div>
   </div>
 </section>
 

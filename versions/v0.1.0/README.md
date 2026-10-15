@@ -10,7 +10,7 @@ a `kmalloc`/`kfree` heap, an AHCI/NVMe/ATA+FAT32 filesystem (read+write, long fi
 disk-loaded ELF programs with file I/O (`open`/`read`/`write`/`close`, stdout on fd 1)). Command output redirects with `<cmd> > <file>`, and `/SETTINGS.TXT`
 styles the prompt and console colors. Networking (E1000 ARP + ICMP ping, UDP sockets, DHCP client,
 TCP client with HTTP `fetch`, default 10.0.2.15/24)
-works under QEMU user-net: add `-netdev user,id=n0 -device e1000,netdev=n0` to `make run`,
+works under QEMU user-net out of the box (q35 defaults to an E1000 on user-net, same as `make run`),
 then `net`, `dhcp`, `ping 10.0.2.2`, and `fetch 10.0.2.2 8099 /path` (needs an HTTP server on the host).
 
 ## Download & website
@@ -107,7 +107,7 @@ You must know before trying:
 | Tasks / scheduler | 16 slots · 50ms quantum @100Hz · 8 fds per task (opens from 3, 2048B per call, 4KB write buffer) |
 | Memory | kernel @`0x100000` · programs @`0x40100000` · PML4 identity 0–1G · ~52K free pages/256M |
 | Console | 12x24 + 8x16 cells, scales 1–4 · 256-line ring · history 16 · cursor ~1Hz blink |
-| Storage | AHCI port 0 → NVMe (admin 64 + IO 32 queues) → ATA PIO (LBA0 signature probe) → live RAM copy of the boot volume |
+| Storage | AHCI port 0 → NVMe (admin depth 64 + IO depth 32, one queue pair) → ATA PIO (LBA0 signature probe) → live RAM copy of the boot volume |
 | Network | E1000 · ARP/ICMP/UDP(68→67 DHCP)/TCP(1460 MSS, 4KB window) · DNS:53 · default 10.0.2.15/24 via 10.0.2.2 |
 | Filesystems | FAT32 R/W (LFN reads) · NaOS-FS v1 reader (512B blocks, 16×32B dirents, depth 8) |
 | Artifacts | BOOTX64.EFI ~17 KB · KERNEL.ELF ~155 KB · DATA.NAFS 61,952 B · ESP 64MiB · ISO ~64.6 MiB |
@@ -119,7 +119,7 @@ boot/uefi/    own uefi.h + efi_main + ELF/GOP/file/exit-services loader (no gnu-
 common/       bootinfo handoff, serial, cstring, io — shared, freestanding
 kernel/       entry.asm (MS→SysV RCX shim) + link.ld + kmain + fb/kprintf/font
 progs/        user programs (ELF binaries for ring 3) + crt0 + user link script
-tools/        check.sh, mkesp.sh, mkiso.sh, font_render.py, build-cross.sh
+tools/        check.sh, mkesp.sh, mkiso.sh, mknafs.py, font_render.py, build-cross.sh
 build/        generated, gitignored (binaries, ESP image, ISO, font header)
 index.html    v0.1.0 website (vanilla HTML/CSS/JS, offline-safe)
 ```
