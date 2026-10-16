@@ -1,4 +1,4 @@
-/* NaOS FAT32 reader (8.3 names, subdirs, read-only). Own BPB parsing. */
+/* NaOS FAT32 driver: read/write, subdirs, long filenames. Own BPB parsing. */
 #ifndef NAOS_FAT32_H
 #define NAOS_FAT32_H
 
@@ -40,5 +40,10 @@ int fat_delete(const char *path);
 int fat_rename(const char *oldpath, const char *newpath);
 /* Copy a file or a whole folder tree. Returns bytes copied, <0 on error. */
 int fat_copy(const char *src, const char *dst);
+/* Walk a directory tree pre-order, cb(full path, is_dir, ctx) per entry
+ * (. and .. skipped, depth cap 8). The callback must not call back into
+ * fat_* (it shares the scan state): collect paths, act afterwards. */
+typedef void (*fat_walk_cb)(const char *path, int is_dir, void *ctx);
+int fat_walk(const char *path, fat_walk_cb cb, void *ctx);
 
 #endif /* NAOS_FAT32_H */

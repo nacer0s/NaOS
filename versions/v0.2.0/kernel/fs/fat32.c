@@ -329,6 +329,9 @@ int fat_ls(const char *path) {
         if (d->name[0] == 0xE5) { lfn_reset(); continue; }
         if (lfn_feed(sec + e * 32)) continue;
         if (d->attr == 0x08) { lfn_reset(); continue; } /* volume label */
+        if ((d->attr & ATTR_DIR) && d->name[0] == '.' &&
+            (d->name[1] == ' ' || (d->name[1] == '.' && d->name[2] == ' ')))
+          continue; /* skip . and .. */
         char name[256];
         if (lfn_get(d->name, name, sizeof(name)) <= 0) {
           int n = 0;
@@ -1156,6 +1159,88 @@ int fat_rename(const char *oldpath, const char *newpath) {
   }
   /* New link is good: drop the old entry (data stays where it is). */
   wipe_alias(oparent, oslot_lba, oslot_off, 1);
+  return 0;
+}
+
+static void walk_dir(uint32_t dir_clus, char *base, int baselen, int depth,
+                     fat_walk_cb cb, void *ctx) {
+  /* One sector buffer per level: recursion must not clobber the
+   * parent's scan (a shared static ends the parent at the child's
+   * end-of-dir). Depth cap 8 -> 9 slots. */
+  static uint8_t wsec[9][512];
+  uint8_t *sec;
+  uint32_t c = dir_clus;
+  if (depth > 8) return;
+  sec = wsec[depth];
+  lfn_reset();
+  while (c >= 2) {
+    for (uint32_t s = 0; s < g_spc; s++) {
+      if (blk_read(clus_to_lba(c) + s, 1, sec) != 0) return;
+      for (int e = 0; e < 16; e++) {
+        const dirent_t *d = (const dirent_t *)(sec + e * 32);
+        char name[256];
+        uint8_t ent[32];
+        int n = 0, k, is_dir;
+        uint32_t nc;
+        if (d->name[0] == 0x00) return; /* end of dir */
+        if (d->name[0] == 0xE5) { lfn_reset(); continue; }
+        if (lfn_feed(sec + e * 32)) continue;
+        if (d->attr == 0x08) { lfn_reset(); continue; } /* volume label */
+        if (lfn_get(d->name, name, sizeof(name)) <= 0) {
+          for (int i = 0; i < 8 && d->name[i] != ' '; i++)
+            name[n++] = (char)d->name[i];
+          if (!(d->attr & ATTR_DIR)) {
+            int m = 0;
+            char ext[4];
+            for (int i = 8; i < 11 && d->name[i] != ' '; i++)
+              ext[m++] = (char)d->name[i];
+            if (m > 0) {
+              name[n++] = '.';
+              for (int i = 0; i < m; i++) name[n++] = ext[i];
+            }
+          }
+          name[n] = '\0';
+        }
+        lfn_reset(); /* chain consumed */
+        if (name[0] == '.' &&
+            (name[1] == '\0' || (name[1] == '.' && name[2] == '\0')))
+          continue;
+        /* Snapshot the entry (cb runs before we recurse). */
+        for (k = 0; k < 32; k++) ent[k] = sec[e * 32 + k];
+        d = (const dirent_t *)ent;
+        is_dir = (d->attr & ATTR_DIR) ? 1 : 0;
+        nc = ((uint32_t)d->clus_hi << 16) | d->clus_lo;
+        n = 0;
+        while (name[n]) n++;
+        if (baselen + 1 + n >= 1024) continue;
+        base[baselen] = '/';
+        for (k = 0; k <= n; k++) base[baselen + 1 + k] = name[k];
+        cb(base, is_dir, ctx);
+        if (is_dir)
+          walk_dir(nc == 0 ? g_root_clus : nc, base, baselen + 1 + n,
+                   depth + 1, cb, ctx);
+        base[baselen] = '\0';
+      }
+    }
+    c = fat_next(c);
+  }
+}
+
+int fat_walk(const char *path, fat_walk_cb cb, void *ctx) {
+  static char base[1024];
+  uint32_t clus, size;
+  uint8_t attr;
+  int n = 0;
+  if (!g_ok || !path || !cb) return -1;
+  if (resolve(path, &clus, &size, &attr) != 0) return -2;
+  if (!(attr & ATTR_DIR)) return -3;
+  while (path[n] && n < 1023) {
+    base[n] = path[n];
+    n++;
+  }
+  base[n] = '\0';
+  while (n > 0 && (base[n - 1] == '/' || base[n - 1] == '\\')) base[--n] = '\0';
+  walk_dir(clus == 0 ? g_root_clus : clus, base, n, 0, cb, ctx);
   return 0;
 }
 

@@ -29,7 +29,7 @@ CROSS_LD   := $(CROSS_BINDIR)x86_64-elf-ld
 PROG_CFLAGS:= -ffreestanding -mno-red-zone -mno-mmx -mno-sse -fno-stack-protector \
               -fno-exceptions -Wall -Wextra -Werror -O2 -std=c11 -Ikernel -c
 PROG_LD    := progs/user.ld
-PROG_SRCS  := progs/hello.c progs/fib.c progs/loop.c progs/crashme.c progs/forkdemo.c progs/fdemo.c
+PROG_SRCS  := progs/hello.c progs/fib.c progs/loop.c progs/crashme.c progs/forkdemo.c progs/fdemo.c progs/seektest.c
 PROG_ELFS  := $(patsubst progs/%.c,$(BUILD)/progs/%.elf,$(PROG_SRCS))
 KERN_CFLAGS:= -ffreestanding -mno-red-zone -mno-mmx -mno-sse -fno-stack-protector \
               -fno-exceptions -Wall -Wextra -Werror -Wno-missing-field-initializers \
@@ -42,8 +42,13 @@ KERN_SRCS  := kernel/kmain.c kernel/drv/fb.c kernel/drv/pit.c \
               kernel/drv/usb_kbd.c kernel/drv/e1000.c \
               kernel/net/net.c kernel/net/udp.c kernel/net/dhcp.c \
               kernel/net/tcp.c kernel/net/dns.c kernel/net/update.c \
+              kernel/net/tls_aes.c kernel/net/tls_prf.c \
+              kernel/net/tls_bn.c kernel/net/tls_p256.c \
+              kernel/net/tls_rsa.c kernel/net/tls_x509.c \
+              kernel/net/tls.c \
               kernel/lib/kprintf.c kernel/lib/sha256.c \
-              kernel/fs/fat32.c kernel/fs/nafs.c kernel/task.c \
+              kernel/fs/fat32.c kernel/fs/nafs.c kernel/fs/mkfs.c \
+              kernel/fs/install.c kernel/task.c \
               kernel/cpu/gdt.c kernel/cpu/idt.c kernel/cpu/isr.c \
               kernel/cpu/pic.c kernel/cpu/tss.c \
               kernel/mm/pmm.c kernel/mm/kmalloc.c \

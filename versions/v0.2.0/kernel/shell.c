@@ -10,6 +10,7 @@
 #include "mm/kmalloc.h"
 #include "fs/fat32.h"
 #include "fs/nafs.h"
+#include "fs/install.h"
 #include "drv/rtc.h"
 #include "drv/acpi.h"
 #include "drv/speaker.h"
@@ -22,6 +23,7 @@
 #include "net/tcp.h"
 #include "net/dns.h"
 #include "net/update.h"
+#include "net/tls.h"
 #include "settings.h"
 #include "task.h"
 #include "user/progs.h"
@@ -216,8 +218,8 @@ static void dispatch(char *line) {
         while (end > rhs && end[-1] == ' ') end--;
         *end = '\0';
       }
-      if (after(line, "edit")) {
-        kprintf("redirect: edit is interactive, cannot redirect\n");
+      if (after(line, "edit-file")) {
+        kprintf("redirect: edit-file is interactive, cannot redirect\n");
         return;
       }
       {
@@ -261,72 +263,77 @@ static void dispatch(char *line) {
   if (after(line, "help")) {
     kprintf("commands:\n");
     kprintf("  help               this list\n");
-    kprintf("  version            show NaOS version\n");
-    kprintf("  about              developer, links, licence\n");
-    kprintf("  clear              clear the screen\n");
-    kprintf("  print <text>       show text on screen\n");
-    kprintf("  memory             show memory info\n");
-    kprintf("  test               check the memory allocator\n");
-    kprintf("  crash              force a page fault (reboot after)\n");
-    kprintf("  list [folder]      list files\n");
-    kprintf("  go <folder>        go to a folder (go .. goes back, go / goes home)\n");
-    kprintf("  read <file>        show a file\n");
+    kprintf("  show-version       show NaOS version\n");
+    kprintf("  about-system       developer, links, licence\n");
+    kprintf("  clear-screen       clear the screen\n");
+    kprintf("  print-text <text>  show text on screen\n");
+    kprintf("  show-memory        show memory info\n");
+    kprintf("  run-tests          check the memory allocator\n");
+    kprintf("  force-crash        force a page fault (reboot after)\n");
+    kprintf("  show-files [dir]   list files\n");
+    kprintf("  open-folder <dir>  go to a folder (open-folder .. goes back, open-folder / goes home)\n");
+    kprintf("  read-file <file>   show a file\n");
     kprintf("  make-folder <name> make a folder\n");
     kprintf("  make-file <name>   make an empty file\n");
-    kprintf("  copy <a...> <to>   copy files or folders into a folder\n");
-    kprintf("  move <a...> <to>   move files or folders into a folder\n");
-    kprintf("  rename <old> <new> rename a file or folder\n");
-    kprintf("  edit <file>        write a file (.save to keep, .quit to drop)\n");
-    kprintf("  delete <name>      delete a file or empty folder\n");
-    kprintf("  run <program>      start a program (counter, ticker, peek, or file)\n");
-    kprintf("  tasks              show programs\n");
-    kprintf("  kill <id>          stop a program\n");
-    kprintf("  time               show the time\n");
-    kprintf("  date               show the date\n");
-    kprintf("  uptime             show time since boot\n");
-    kprintf("  beep               play a sound\n");
-    kprintf("  pci                list PCI devices (disk driver: %s)\n",
+    kprintf("  copy-file <a...> <to>   copy files or folders into a folder\n");
+    kprintf("  move-file <a...> <to>   move files or folders into a folder\n");
+    kprintf("  rename-file <old> <new> rename a file or folder\n");
+    kprintf("  edit-file <file>   write a file (.save to keep, .quit to drop)\n");
+    kprintf("  delete-file <name> delete a file or empty folder\n");
+    kprintf("  run-program <prog> start a program (counter, ticker, peek, or file)\n");
+    kprintf("  show-tasks         show programs\n");
+    kprintf("  stop-task <id>     stop a program\n");
+    kprintf("  show-time          show the time\n");
+    kprintf("  show-date          show the date\n");
+    kprintf("  show-uptime        show time since boot\n");
+    kprintf("  play-beep          play a sound\n");
+    kprintf("  show-pci           list PCI devices (disk driver: %s)\n",
             blk_name());
-    kprintf("  usb                look for a USB keyboard now\n");
-    kprintf("  nvme               NVMe info + write/read selftest\n");
-    kprintf("  nafs mount <img>   mount a NaOS-FS image file\n");
-    kprintf("  nafs list [/dir]   list the mounted NaOS-FS\n");
-    kprintf("  nafs read </file>  print a NaOS-FS text file\n");
-    kprintf("  nafs write <s> <d> copy a FAT file into the image\n");
-    kprintf("  nafs delete </file> delete a file from the image\n");
-    kprintf("  net                show network status\n");
-    kprintf("  ping <ip>          ping an IPv4 address\n");
-    kprintf("  dhcp               get IP via DHCP (proves UDP)\n");
-    kprintf("  dns <name>         resolve a hostname\n");
-    kprintf("  update check <host> <port> </manifest>\n");
+    kprintf("  find-keyboard      look for a USB keyboard now\n");
+    kprintf("  show-nvme          NVMe info + write/read selftest\n");
+    kprintf("  show-drives        list disks + the live session\n");
+    kprintf("  install-system <drive> erase\n");
+    kprintf("                     copy the live system onto a disk\n");
+    kprintf("  file-system mount <img>   mount a NaOS-FS image file\n");
+    kprintf("  file-system list [/dir]   list the mounted NaOS-FS\n");
+    kprintf("  file-system read </file>  print a NaOS-FS text file\n");
+    kprintf("  file-system write <s> <d> copy a FAT file into the image\n");
+    kprintf("  file-system delete </file> delete a file from the image\n");
+    kprintf("  show-network       show network status\n");
+    kprintf("  ping-address <ip>  ping an IPv4 address\n");
+    kprintf("  get-address        get IP via DHCP (proves UDP)\n");
+    kprintf("  find-address <name> resolve a hostname\n");
+    kprintf("  system-update check <host> <port> </manifest>\n");
     kprintf("                     compare versions, list files\n");
-    kprintf("  update get <host> <port> </remote> </local> [sha]\n");
+    kprintf("  system-update get <host> <port> </remote> </local> [sha]\n");
     kprintf("                     download a file, verify its hash\n");
-    kprintf("  fetch <ip> <port> </path>\n");
+    kprintf("  get-page <ip> <port> </path>\n");
     kprintf("                     HTTP/1.0 GET over TCP, print body\n");
-    kprintf("  serve <port> </file>\n");
+    kprintf("  get-page-tls <host> <port> </path>\n");
+    kprintf("                     HTTPS GET (own TLS 1.2), print body\n");
+    kprintf("  serve-file <port> </file>\n");
     kprintf("                     serve one file over HTTP, then done\n");
-    kprintf("  settings           show prompt and colors (/SETTINGS.TXT)\n");
-    kprintf("  font [small|normal|big|3|4]\n");
+    kprintf("  show-settings      show prompt and colors (/SETTINGS.TXT)\n");
+    kprintf("  set-font [small|normal|big|3|4]\n");
     kprintf("                     console size, saved\n");
     kprintf("  PgUp/PgDn scroll the screen back and forth\n");
     kprintf("  Ctrl+C             cancel the current line\n");
-    kprintf("  reboot             restart the computer\n");
-    kprintf("  shutdown           stop the computer\n");
+    kprintf("  reboot-system      restart the computer\n");
+    kprintf("  shut-down          stop the computer\n");
     kprintf("  <cmd> > <file>     save command output to a file\n");
-  } else if (after(line, "version")) {
+  } else if (after(line, "show-version")) {
     kprintf("NaOS v%s\n", NAOS_VERSION);
     kprintf("build %s (x86_64 UEFI, from scratch)\n", NAOS_BUILD);
-  } else if (after(line, "about")) {
+  } else if (after(line, "about-system")) {
     kprintf("NaOS v%s (%s) - usable x86_64 UEFI OS, from scratch in C\n",
             NAOS_VERSION, NAOS_BUILD);
     kprintf("Developer: nacer0s - github.com/nacer0s - nacer0s.com\n");
     kprintf("Licence: source-available, non-commercial (see LICENCE.md)\n");
-  } else if (after(line, "clear")) {
+  } else if (after(line, "clear-screen")) {
     fb_clear(settings_bg());
-  } else if (after(line, "settings")) {
+  } else if (after(line, "show-settings")) {
     settings_show();
-  } else if ((a = after(line, "font"))) {
+  } else if ((a = after(line, "set-font"))) {
     if (*a == '\0') {
       int f = settings_font();
       kprintf("font is %s\n", f == 0 ? "small" : f == 1 ? "normal" : f == 2 ? "big" : f == 3 ? "3" : "4");
@@ -340,7 +347,7 @@ static void dispatch(char *line) {
       else if (naos_strcmp(a, "3") == 0) f = 3;
       else if (naos_strcmp(a, "4") == 0) f = 4;
       if (f < 0) {
-        kprintf("usage: font [small|normal|big|3|4]\n");
+        kprintf("usage: set-font [small|normal|big|3|4]\n");
       } else {
         settings_set_font(f);
         if (settings_save() == 0)
@@ -349,20 +356,20 @@ static void dispatch(char *line) {
           kprintf("font changed (save failed)\n");
       }
     }
-  } else if ((a = after(line, "print"))) {
+  } else if ((a = after(line, "print-text"))) {
     kprintf("%s\n", a);
-  } else if (after(line, "memory")) {
+  } else if (after(line, "show-memory")) {
     cmd_mem();
-  } else if (after(line, "test")) {
+  } else if (after(line, "run-tests")) {
     cmd_heap();
-  } else if (after(line, "crash")) {
+  } else if (after(line, "force-crash")) {
     kprintf("crash: reading unmapped 0x50000000 (expect PAGE FAULT)...\n");
     volatile uint8_t v = *(volatile uint8_t *)(uintptr_t)0x50000000ULL;
     kprintf("crash: survived?! v=%u\n", (unsigned)v);
-  } else if ((a = after(line, "list"))) {
+  } else if ((a = after(line, "show-files"))) {
     mkpath(a, full, sizeof(full));
     fat_ls(full);
-  } else if ((a = after(line, "go"))) {
+  } else if ((a = after(line, "open-folder"))) {
     const char *orig = a;
     if (*a == '\0' || naos_strcmp(a, "/") == 0) {
       g_cwd[0] = '/';
@@ -407,7 +414,7 @@ static void dispatch(char *line) {
         tmp[n] = '\0';
       }
       if (bad || !fat_is_dir(tmp[0] ? tmp : "/")) {
-        kprintf("go: no such folder: %s\n", orig);
+        kprintf("open-folder: no such folder: %s\n", orig);
       } else {
         size_t c = 0;
         while (tmp[c] && c + 1 < sizeof(g_cwd)) {
@@ -421,16 +428,16 @@ static void dispatch(char *line) {
         }
       }
     }
-  } else if ((a = after(line, "read"))) {
+  } else if ((a = after(line, "read-file"))) {
     if (*a == '\0') {
-      kprintf("usage: read <file>\n");
+      kprintf("usage: read-file <file>\n");
     } else {
       static char buf[4096];
       uint32_t size = 0;
       mkpath(a, full, sizeof(full));
       int r = fat_read(full, buf, sizeof(buf) - 1, &size);
       if (r < 0) {
-        kprintf("read: cannot read %s (err %d)\n", full, r);
+        kprintf("read-file: cannot read %s (err %d)\n", full, r);
       } else {
         buf[r] = '\0';
         kprintf("--- %s (%u bytes%s) ---\n", full, (unsigned)size,
@@ -439,9 +446,9 @@ static void dispatch(char *line) {
         if (r > 0 && buf[r - 1] != '\n') kprintf("\n");
       }
     }
-  } else if ((a = after(line, "edit"))) {
+  } else if ((a = after(line, "edit-file"))) {
     if (*a == '\0') {
-      kprintf("usage: edit <file>\n");
+      kprintf("usage: edit-file <file>\n");
     } else {
       mkpath(a, full, sizeof(full));
       cmd_edit(full);
@@ -466,22 +473,22 @@ static void dispatch(char *line) {
     }
   } else if (after(line, "make")) {
     kprintf("usage: make-folder <name> / make-file <name>\n");
-  } else if ((a = after(line, "delete"))) {
+  } else if ((a = after(line, "delete-file"))) {
     if (*a == '\0') {
-      kprintf("usage: delete <name>\n");
+      kprintf("usage: delete-file <name>\n");
     } else {
       mkpath(a, full, sizeof(full));
       int r = fat_delete(full);
       if (r == 0) kprintf("deleted %s\n", full);
-      else kprintf("delete: failed (%d)\n", r);
+      else kprintf("delete-file: failed (%d)\n", r);
     }
-  } else if ((a = after(line, "copy")) || (a = after(line, "move"))) {
+  } else if ((a = after(line, "copy-file")) || (a = after(line, "move-file"))) {
     int is_move = (line[0] == 'm'); /* "move" vs "copy" */
     int n = split_args(a);
     static char dstf[256], srcf[256];
     if (n < 2) {
-      kprintf(is_move ? "usage: move <a...> <to folder>\n"
-                      : "usage: copy <a...> <to folder>\n");
+      kprintf(is_move ? "usage: move-file <a...> <to folder>\n"
+                      : "usage: copy-file <a...> <to folder>\n");
     } else {
       /* Destination: last word. Bare name = same folder. */
       mkpath(g_argv[n - 1], dstf, sizeof(dstf));
@@ -532,10 +539,10 @@ static void dispatch(char *line) {
         }
       }
     }
-  } else if ((a = after(line, "rename"))) {
+  } else if ((a = after(line, "rename-file"))) {
     int n = split_args(a);
     if (n != 2) {
-      kprintf("usage: rename <old> <new name>\n");
+      kprintf("usage: rename-file <old> <new name>\n");
     } else {
       static char oldf[256];
       mkpath(g_argv[0], oldf, sizeof(oldf));
@@ -544,7 +551,7 @@ static void dispatch(char *line) {
       for (const char *p = g_argv[1]; *p; p++)
         if (*p == '/' || *p == '\\') slashes = 1;
       if (slashes) {
-        kprintf("rename: new name only, use move to change folders\n");
+        kprintf("rename-file: new name only, use move-file to change folders\n");
       } else {
         /* Parent folder of the old path + new leaf. */
         static char newf[256];
@@ -560,12 +567,12 @@ static void dispatch(char *line) {
         newf[m] = '\0';
         int r = fat_rename(oldf, newf);
         if (r == 0) kprintf("renamed %s\n", oldf);
-        else kprintf("rename: failed (%d)\n", r);
+        else kprintf("rename-file: failed (%d)\n", r);
       }
     }
-  } else if ((a = after(line, "run"))) {
+  } else if ((a = after(line, "run-program"))) {
     if (*a == '\0') {
-      kprintf("usage: run <program> (counter, ticker, peek, or file)\n");
+      kprintf("usage: run-program <program> (counter, ticker, peek, or file)\n");
     } else if (naos_strcmp(a, "counter") == 0) {
       int id = task_spawn("counter", prog_counter);
       if (id >= 0) kprintf("started counter as program %u\n", (unsigned)id);
@@ -582,11 +589,11 @@ static void dispatch(char *line) {
       mkpath(a, full, sizeof(full));
       int id = task_spawn_elf(full, full);
       if (id >= 0) kprintf("started %s as program %u\n", full, (unsigned)id);
-      else kprintf("run: no program and no file %s (%d)\n", full, id);
+      else kprintf("run-program: no program and no file %s (%d)\n", full, id);
     }
-  } else if (after(line, "tasks")) {
+  } else if (after(line, "show-tasks")) {
     task_list();
-  } else if (after(line, "time")) {
+  } else if (after(line, "show-time")) {
     rtc_time_t t;
     if (rtc_read(&t)) {
       char b[16];
@@ -595,7 +602,7 @@ static void dispatch(char *line) {
     } else {
       kprintf("time: no clock\n");
     }
-  } else if (after(line, "date")) {
+  } else if (after(line, "show-date")) {
     rtc_time_t t;
     if (rtc_read(&t)) {
       char b[16];
@@ -604,24 +611,31 @@ static void dispatch(char *line) {
     } else {
       kprintf("date: no clock\n");
     }
-  } else if (after(line, "uptime")) {
+  } else if (after(line, "show-uptime")) {
     uint64_t s = pit_ticks() / 100;
     kprintf("up %u:%u:%u\n", (unsigned)(s / 3600),
             (unsigned)((s / 60) % 60), (unsigned)(s % 60));
-  } else if (after(line, "beep")) {
+  } else if (after(line, "play-beep")) {
     speaker_beep(523, 120);
     speaker_beep(659, 120);
     speaker_beep(784, 200);
-  } else if (after(line, "pci")) {
+  } else if (after(line, "show-pci")) {
     kprintf("disk driver: %s\n", blk_name());
     pci_list();
-  } else if (after(line, "usb")) {
+  } else if (after(line, "find-keyboard")) {
     usb_kbd_rescan();
-  } else if ((a = after(line, "nvme"))) {
+  } else if ((a = after(line, "show-nvme"))) {
     (void)a;
     nvme_info();
     kprintf("nvme: selftest %s\n", nvme_selftest() == 0 ? "OK" : "FAIL");
-  } else if ((a = after(line, "nafs"))) {
+  } else if (after(line, "show-drives")) {
+    drives_show();
+  } else if ((a = after(line, "install-system"))) {
+    int n = split_args(a);
+    if (n == 0) install_run(0, 0);
+    else if (n == 1) install_run(g_argv[0], 0);
+    else install_run(g_argv[0], naos_strcmp(g_argv[1], "erase") == 0);
+  } else if ((a = after(line, "file-system"))) {
     char *w[4];
     int n = split_words((char *)a, w, 4);
     if (n >= 2 && naos_strcmp(w[0], "mount") == 0) nafs_mount(w[1]);
@@ -632,19 +646,19 @@ static void dispatch(char *line) {
       nafs_write(w[1], w[2]);
     else if (n >= 2 && naos_strcmp(w[0], "delete") == 0) nafs_delete(w[1]);
     else {
-      kprintf("usage: nafs mount <fat-path-to-image>\n");
-      kprintf("       nafs list [/dir]\n");
-      kprintf("       nafs read </file>\n");
-      kprintf("       nafs write <fat-src> </nafs-dst>\n");
-      kprintf("       nafs delete </file>\n");
+      kprintf("usage: file-system mount <fat-path-to-image>\n");
+      kprintf("       file-system list [/dir]\n");
+      kprintf("       file-system read </file>\n");
+      kprintf("       file-system write <fat-src> </nafs-dst>\n");
+      kprintf("       file-system delete </file>\n");
     }
-  } else if (after(line, "net")) {
+  } else if (after(line, "show-network")) {
     net_status();
-  } else if (after(line, "dhcp")) {
+  } else if (after(line, "get-address")) {
     if (net_dhcp() == 0) net_status();
-  } else if ((a = after(line, "dns"))) {
+  } else if ((a = after(line, "find-address"))) {
     if (*a == '\0') {
-      kprintf("usage: dns <name>\n");
+      kprintf("usage: find-address <name>\n");
     } else {
       uint32_t ip;
       char ips[20];
@@ -655,7 +669,7 @@ static void dispatch(char *line) {
         kprintf("dns: no answer for '%s'\n", a);
       }
     }
-  } else if ((a = after(line, "update"))) {
+  } else if ((a = after(line, "system-update"))) {
     char *w[6];
     int n = split_words((char *)a, w, 6);
     unsigned port = 0;
@@ -665,19 +679,19 @@ static void dispatch(char *line) {
       if (port > 0 && port < 65536 && w[3][0] == '/')
         update_check(w[1], (uint16_t)port, w[3]);
       else
-        kprintf("usage: update check <host> <port> </manifest>\n");
+        kprintf("usage: system-update check <host> <port> </manifest>\n");
     } else if (n >= 5 && naos_strcmp(w[0], "get") == 0) {
       for (const char *p = w[2]; *p >= '0' && *p <= '9'; p++)
         port = port * 10 + (unsigned)(*p - '0');
       if (port > 0 && port < 65536 && w[3][0] == '/' && w[4][0] != '\0')
         update_get(w[1], (uint16_t)port, w[3], w[4], n >= 6 ? w[5] : "");
       else
-        kprintf("usage: update get <host> <port> </remote> </local> [sha]\n");
+        kprintf("usage: system-update get <host> <port> </remote> </local> [sha]\n");
     } else {
-      kprintf("usage: update check <host> <port> </manifest>\n");
+      kprintf("usage: system-update check <host> <port> </manifest>\n");
       kprintf("       update get <host> <port> </remote> </local> [sha]\n");
     }
-  } else if ((a = after(line, "fetch"))) {
+  } else if ((a = after(line, "get-page"))) {
     uint32_t ip = 0;
     unsigned port = 0;
     const char *p = a;
@@ -701,9 +715,38 @@ static void dispatch(char *line) {
         if (ok) net_fetch(ip, (uint16_t)port, p);
       }
       if (!ok)
-        kprintf("usage: fetch <a.b.c.d> <port> </path>\n");
+        kprintf("usage: get-page <a.b.c.d> <port> </path>\n");
     }
-  } else if ((a = after(line, "serve"))) {
+  } else if ((a = after(line, "get-page-tls"))) {
+    char *w[4];
+    int n = split_words((char *)a, w, 4);
+    unsigned port = 0;
+    if (n == 3) {
+      for (const char *p = w[1]; *p >= '0' && *p <= '9'; p++)
+        port = port * 10 + (unsigned)(*p - '0');
+    }
+    if (n == 3 && port > 0 && port < 65536 && w[2][0] == '/') {
+      uint32_t ip = 0;
+      uint8_t ipb[4];
+      const char *host = 0;
+      if (net_parse_ip(w[0], &ip) == 0) {
+        ipb[0] = (uint8_t)(ip >> 24);
+        ipb[1] = (uint8_t)(ip >> 16);
+        ipb[2] = (uint8_t)(ip >> 8);
+        ipb[3] = (uint8_t)ip;
+        if (tls_fetch_print(ip, (uint16_t)port, 0, ipb, w[2]) != 0)
+          kprintf("get-page-tls: failed\n");
+      } else if (dns_resolve(w[0], &ip) == 0) {
+        host = w[0];
+        if (tls_fetch_print(ip, (uint16_t)port, host, 0, w[2]) != 0)
+          kprintf("get-page-tls: failed\n");
+      } else {
+        kprintf("get-page-tls: cannot resolve '%s'\n", w[0]);
+      }
+    } else {
+      kprintf("usage: get-page-tls <host-or-ip> <port> </path>\n");
+    }
+  } else if ((a = after(line, "serve-file"))) {
     char *w[4];
     int n = split_words((char *)a, w, 4);
     unsigned port = 0;
@@ -714,20 +757,20 @@ static void dispatch(char *line) {
     if (n == 2 && port > 0 && port < 65536 && w[1][0] == '/')
       net_serve((uint16_t)port, w[1]);
     else
-      kprintf("usage: serve <port> </file>\n");
-  } else if ((a = after(line, "ping"))) {
+      kprintf("usage: serve-file <port> </file>\n");
+  } else if ((a = after(line, "ping-address"))) {
     uint32_t ip;
     if (*a == '\0' || net_parse_ip(a, &ip) != 0)
-      kprintf("usage: ping <a.b.c.d>\n");
+      kprintf("usage: ping-address <a.b.c.d>\n");
     else
       net_ping(ip);
-  } else if (after(line, "reboot")) {
+  } else if (after(line, "reboot-system")) {
     kprintf("restarting...\n");
     cpu_reboot();
     kprintf("reboot: failed\n");
-  } else if ((a = after(line, "kill"))) {
+  } else if ((a = after(line, "stop-task"))) {
     if (*a == '\0') {
-      kprintf("usage: kill <id>\n");
+      kprintf("usage: stop-task <id>\n");
     } else {
       int id = 0;
       int digits = 0;
@@ -739,7 +782,7 @@ static void dispatch(char *line) {
       if (r == 0) kprintf("stopped program %u\n", (unsigned)id);
       else kprintf("kill: bad id (%d)\n", r);
     }
-  } else if (after(line, "shutdown")) {
+  } else if (after(line, "shut-down")) {
     if (acpi_has_poweroff()) {
       kprintf("shutting down...\n");
       acpi_poweroff();

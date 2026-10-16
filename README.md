@@ -19,7 +19,7 @@ Each version is a **frozen, self-contained snapshot**: own source, Makefile, too
 
 | Version | Status | Highlights |
 |---|---|---|
-| [v0.2.0](versions/v0.2.0/) | 🚧 in development — unreleased | v0.1.0 base + TCP server (`serve` answers HTTP) + NaOS-FS writes, 40 commands |
+| [v0.2.0](versions/v0.2.0/) | 🚧 in development — unreleased | v0.1.0 base + TCP server (`serve` answers HTTP) + NaOS-FS writes + own TLS 1.2 (`get-page-tls`) + disk install (`install-system`), 43 commands |
 | [v0.1.0](versions/v0.1.0/) | ✅ current — verified on QEMU | `NaOS>` shell (39 commands), FAT32 read/write, multitasking + `fork()`, USB keyboard, UDP/DHCP/TCP + HTTP `fetch`, AHCI/NVMe/ATA disks, ISO export |
 
 Per-version docs live inside the folder: [v0.1.0 README](versions/v0.1.0/README.md) (build + commands), [IDEA](versions/v0.1.0/IDEA.md) (vision + phases), [CHANGELOG](versions/v0.1.0/CHANGELOG.md) (every change). Version numbers are short SemVer (`VERSION` in each Makefile); `version` prints the build date on its own line.
@@ -69,7 +69,8 @@ versions/
   v0.1.0/            frozen v0.1.0 snapshot: Makefile, boot/, kernel/,
                      common/, progs/, tools/, docs, website, build/ (generated)
   v0.2.0/            in-development snapshot: v0.1.0 base + TCP server,
-                     NaOS-FS writes (same layout; unreleased, no tag yet)
+                      NaOS-FS writes, own TLS 1.2, disk install
+                      (same layout; unreleased, no tag yet)
 ```
 
 ## Rules (global)

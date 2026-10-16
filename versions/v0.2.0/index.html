@@ -170,39 +170,42 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
     <p class="sec-sub">Everything the <code>NaOS&gt;</code> prompt understands in v0.2.0.</p>
     <div class="ref">
       <div class="ref-group"><h3><i class="fa-solid fa-folder-open"></i>Files</h3>
-        <div class="cmd"><code>list</code><span>list the current folder</span></div>
-        <div class="cmd"><code>read &lt;file&gt;</code><span>show a text file</span></div>
-        <div class="cmd"><code>go &lt;dir&gt;</code><span>change folder</span></div>
+        <div class="cmd"><code>show-files</code><span>list the current folder</span></div>
+        <div class="cmd"><code>read-file &lt;file&gt;</code><span>show a text file</span></div>
+        <div class="cmd"><code>open-folder &lt;dir&gt;</code><span>change folder</span></div>
         <div class="cmd"><code>make-folder / make-file</code><span>create folder / file</span></div>
-        <div class="cmd"><code>copy · move · rename</code><span>organize files and folders</span></div>
-        <div class="cmd"><code>edit &lt;file&gt;</code><span>built-in text editor</span></div>
-        <div class="cmd"><code>delete &lt;path&gt;</code><span>remove files and folders</span></div>
-        <div class="cmd"><code>nafs mount/list/read/write/delete</code><span>read + write NaOS-FS images</span></div>
+        <div class="cmd"><code>copy-file · move-file · rename-file</code><span>organize files and folders</span></div>
+        <div class="cmd"><code>edit-file &lt;file&gt;</code><span>built-in text editor</span></div>
+        <div class="cmd"><code>delete-file &lt;path&gt;</code><span>remove files and folders</span></div>
+        <div class="cmd"><code>file-system mount/list/read/write/delete</code><span>read + write NaOS-FS images</span></div>
+        <div class="cmd"><code>show-drives</code><span>list AHCI / NVMe / ATA disks</span></div>
+        <div class="cmd"><code>install-system &lt;id&gt; erase</code><span>format + install NaOS on a disk</span></div>
       </div>
       <div class="ref-group"><h3><i class="fa-solid fa-gears"></i>System</h3>
-        <div class="cmd"><code>help · version · about</code><span>commands · build date · developer</span></div>
-        <div class="cmd"><code>run &lt;program&gt;</code><span>run a disk ELF program</span></div>
-        <div class="cmd"><code>tasks · kill &lt;id&gt;</code><span>process list · stop a task</span></div>
-        <div class="cmd"><code>time · date · uptime</code><span>CMOS clock readings</span></div>
-        <div class="cmd"><code>memory · test · crash</code><span>stats · self-tests · fault test</span></div>
-        <div class="cmd"><code>pci · settings</code><span>PCI scan · prompt/theme view</span></div>
-        <div class="cmd"><code>clear · print · beep</code><span>screen · echo text · speaker</span></div>
-        <div class="cmd"><code>font [small|normal|big|3|4]</code><span>console size, saved</span></div>
+        <div class="cmd"><code>help · show-version · about-system</code><span>commands · build date · developer</span></div>
+        <div class="cmd"><code>run-program &lt;program&gt;</code><span>run a disk ELF program</span></div>
+        <div class="cmd"><code>show-tasks · stop-task &lt;id&gt;</code><span>process list · stop a task</span></div>
+        <div class="cmd"><code>show-time · show-date · show-uptime</code><span>CMOS clock readings</span></div>
+        <div class="cmd"><code>show-memory · run-tests · force-crash</code><span>stats · self-tests · fault test</span></div>
+        <div class="cmd"><code>show-pci · show-settings</code><span>PCI scan · prompt/theme view</span></div>
+        <div class="cmd"><code>clear-screen · print-text · play-beep</code><span>screen · echo text · speaker</span></div>
+        <div class="cmd"><code>set-font [small|normal|big|3|4]</code><span>console size, saved</span></div>
         <div class="cmd"><code>PgUp · PgDn</code><span>scroll the screen back and forth</span></div>
       </div>
       <div class="ref-group"><h3><i class="fa-solid fa-network-wired"></i>Network</h3>
-        <div class="cmd"><code>net</code><span>MAC / IP / link / counters</span></div>
-        <div class="cmd"><code>dhcp</code><span>lease an address (proves UDP)</span></div>
-        <div class="cmd"><code>ping &lt;ip&gt;</code><span>ICMP echo, 4 packets</span></div>
-        <div class="cmd"><code>fetch &lt;ip&gt; &lt;port&gt; &lt;path&gt;</code><span>HTTP GET over TCP</span></div>
-        <div class="cmd"><code>dns &lt;name&gt;</code><span>resolve a hostname</span></div>
-        <div class="cmd"><code>update check/get</code><span>manifest compare + verified downloads</span></div>
-        <div class="cmd"><code>serve &lt;port&gt; &lt;file&gt;</code><span>serve one file over HTTP, then done</span></div>
+        <div class="cmd"><code>show-network</code><span>MAC / IP / link / counters</span></div>
+        <div class="cmd"><code>get-address</code><span>lease an address (proves UDP)</span></div>
+        <div class="cmd"><code>ping-address &lt;ip&gt;</code><span>ICMP echo, 4 packets</span></div>
+        <div class="cmd"><code>get-page &lt;ip&gt; &lt;port&gt; &lt;path&gt;</code><span>HTTP GET over TCP</span></div>
+        <div class="cmd"><code>get-page-tls &lt;ip|host&gt; &lt;port&gt; &lt;path&gt;</code><span>HTTPS GET, own TLS 1.2 client</span></div>
+        <div class="cmd"><code>find-address &lt;name&gt;</code><span>resolve a hostname</span></div>
+        <div class="cmd"><code>system-update check/get</code><span>manifest compare + verified downloads</span></div>
+        <div class="cmd"><code>serve-file &lt;port&gt; &lt;file&gt;</code><span>serve one file over HTTP, then done</span></div>
       </div>
       <div class="ref-group"><h3><i class="fa-solid fa-plug"></i>Hardware &amp; power</h3>
-        <div class="cmd"><code>usb</code><span>rescan for a USB keyboard</span></div>
-        <div class="cmd"><code>nvme</code><span>controller info + self-test</span></div>
-        <div class="cmd"><code>reboot · shutdown</code><span>8042 reset · ACPI power-off</span></div>
+        <div class="cmd"><code>find-keyboard</code><span>rescan for a USB keyboard</span></div>
+        <div class="cmd"><code>show-nvme</code><span>controller info + self-test</span></div>
+        <div class="cmd"><code>reboot-system · shut-down</code><span>8042 reset · ACPI power-off</span></div>
       </div>
     </div>
   </div>

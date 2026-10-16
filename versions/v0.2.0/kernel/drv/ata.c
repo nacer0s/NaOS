@@ -21,6 +21,7 @@
 #define ST_ERR 0x01
 
 static uint64_t g_sectors;
+static int g_lba48; /* 48-bit commands supported (words 100-103) */
 
 static int wait_clear(uint8_t mask, uint32_t tries) {
   while (tries--) {
@@ -75,8 +76,19 @@ int ata_init(void) {
   }
   uint16_t id[256];
   naos_insw(ATA_DATA, id, 256);
-  uint32_t secs = (uint32_t)id[60] | ((uint32_t)id[61] << 16);
-  g_sectors = secs;
+  /* 48-bit max LBA when supported, else legacy 28-bit (wraps past
+   * 137GB); clamped to the 32-bit LBA layer. */
+  {
+    uint64_t secs;
+    if (id[83] & 0x0400u)
+      secs = (uint64_t)id[100] | ((uint64_t)id[101] << 16) |
+             ((uint64_t)id[102] << 32) | ((uint64_t)id[103] << 48);
+    else
+      secs = (uint64_t)id[60] | ((uint64_t)id[61] << 16);
+    if (secs > 0xFFFFFFFFULL) secs = 0xFFFFFFFFULL;
+    g_sectors = secs;
+  }
+  g_lba48 = (id[83] & 0x0400u) ? 1 : 0;
   char model[41];
   for (int i = 0; i < 20; i++) {
     model[2 * i] = (char)(id[27 + i] >> 8);
@@ -85,7 +97,7 @@ int ata_init(void) {
   model[40] = '\0';
   /* Trim trailing spaces. */
   for (int i = 39; i >= 0 && model[i] == ' '; i--) model[i] = '\0';
-  kprintf("ata: %s sectors=%u\n", model, (unsigned)secs);
+  kprintf("ata: %s sectors=%u\n", model, (unsigned)g_sectors);
   return 0;
 }
 
@@ -100,48 +112,63 @@ int ata_probe(void) {
   return (sec[510] == 0x55 && sec[511] == 0xAA) ? 1 : 0;
 }
 
+static int ata_rw(uint32_t lba, uint8_t count, uint8_t *buf, int is_write);
+
 int ata_read(uint32_t lba, uint8_t count, void *buf) {
+  return ata_rw(lba, count, (uint8_t *)buf, 0);
+}
+
+/* One PIO command: LBA48 (0x24/0x34) when supported, else legacy 28-bit
+ * (0x20/0x30, refused past 137GB). count 1..255. */
+static int ata_rw(uint32_t lba, uint8_t count, uint8_t *buf, int is_write) {
+  uint16_t *p;
   if (count == 0 || !buf) return -1;
   if (wait_clear(ST_BSY, 1000000) != 0) return -1;
-  naos_outb(ATA_DRIVE, (uint8_t)(0xE0 | ((lba >> 24) & 0x0F)));
-  naos_outb(ATA_COUNT, count);
-  naos_outb(ATA_LBA0, (uint8_t)(lba & 0xFF));
-  naos_outb(ATA_LBA1, (uint8_t)((lba >> 8) & 0xFF));
-  naos_outb(ATA_LBA2, (uint8_t)((lba >> 16) & 0xFF));
-  naos_outb(ATA_CMD, 0x20); /* READ SECTORS */
+  if (g_lba48) {
+    naos_outb(ATA_DRIVE, 0x40); /* master, LBA mode */
+    naos_outb(ATA_ERR, 0);
+    naos_outb(ATA_COUNT, 0); /* count high */
+    naos_outb(ATA_LBA0, (uint8_t)((lba >> 24) & 0xFF)); /* LBA 24-31 */
+    naos_outb(ATA_LBA1, 0);
+    naos_outb(ATA_LBA2, 0);
+    naos_outb(ATA_ERR, 0);
+    naos_outb(ATA_COUNT, count); /* count low */
+    naos_outb(ATA_LBA0, (uint8_t)(lba & 0xFF));
+    naos_outb(ATA_LBA1, (uint8_t)((lba >> 8) & 0xFF));
+    naos_outb(ATA_LBA2, (uint8_t)((lba >> 16) & 0xFF));
+    naos_outb(ATA_CMD, is_write ? 0x34 : 0x24);
+  } else {
+    if ((uint64_t)lba + count > 0x0FFFFFFFULL) return -1; /* 28-bit cap */
+    naos_outb(ATA_DRIVE, (uint8_t)(0xE0 | ((lba >> 24) & 0x0F)));
+    naos_outb(ATA_COUNT, count);
+    naos_outb(ATA_LBA0, (uint8_t)(lba & 0xFF));
+    naos_outb(ATA_LBA1, (uint8_t)((lba >> 8) & 0xFF));
+    naos_outb(ATA_LBA2, (uint8_t)((lba >> 16) & 0xFF));
+    naos_outb(ATA_CMD, is_write ? 0x30 : 0x20);
+  }
   delay400ns();
-  uint16_t *p = (uint16_t *)buf;
+  p = (uint16_t *)buf;
   for (uint32_t s = 0; s < count; s++) {
     int r = wait_set(ST_DRQ, 1000000);
     if (r != 0) return -1;
-    naos_insw(ATA_DATA, p, 256);
-    p += 256;
+    if (is_write) {
+      naos_outsw(ATA_DATA, p, 256);
+      p += 256;
+      /* Flush cache so data hits the platter (QEMU: image file). */
+      if (s + 1 == count) {
+        if (wait_clear(ST_BSY, 1000000) != 0) return -1;
+        naos_outb(ATA_CMD, g_lba48 ? 0xEA : 0xE7);
+        if (wait_clear(ST_BSY, 1000000) != 0) return -1;
+      }
+    } else {
+      naos_insw(ATA_DATA, p, 256);
+      p += 256;
+    }
   }
   return 0;
 }
 
 int ata_write(uint32_t lba, uint8_t count, const void *buf) {
-  if (count == 0 || !buf) return -1;
-  if (wait_clear(ST_BSY, 1000000) != 0) return -1;
-  naos_outb(ATA_DRIVE, (uint8_t)(0xE0 | ((lba >> 24) & 0x0F)));
-  naos_outb(ATA_COUNT, count);
-  naos_outb(ATA_LBA0, (uint8_t)(lba & 0xFF));
-  naos_outb(ATA_LBA1, (uint8_t)((lba >> 8) & 0xFF));
-  naos_outb(ATA_LBA2, (uint8_t)((lba >> 16) & 0xFF));
-  naos_outb(ATA_CMD, 0x30); /* WRITE SECTORS */
-  delay400ns();
-  const uint16_t *p = (const uint16_t *)buf;
-  for (uint32_t s = 0; s < count; s++) {
-    int r = wait_set(ST_DRQ, 1000000);
-    if (r != 0) return -1;
-    naos_outsw(ATA_DATA, p, 256);
-    p += 256;
-    /* Flush cache so data hits the platter (QEMU: image file). */
-    if (s + 1 == count) {
-      if (wait_clear(ST_BSY, 1000000) != 0) return -1;
-      naos_outb(ATA_CMD, 0xE7);
-      if (wait_clear(ST_BSY, 1000000) != 0) return -1;
-    }
-  }
-  return 0;
+  if (!buf) return -1;
+  return ata_rw(lba, count, (uint8_t *)buf, 1);
 }

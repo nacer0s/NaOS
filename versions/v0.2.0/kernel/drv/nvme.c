@@ -39,7 +39,8 @@ static int g_ok;
 static uint64_t g_base; /* mapped BAR0 */
 static uint64_t g_db;   /* doorbell base */
 static uint32_t g_stride;
-static uint64_t g_nsze; /* namespace blocks */
+static uint64_t g_nsze; /* namespace capacity, in 512B sectors */
+static uint8_t g_lbads; /* namespace block size as 2^n (9=512B, 12=4K) */
 
 static uint8_t *g_asq;
 static uint8_t *g_acq;
@@ -234,13 +235,21 @@ int nvme_init(void) {
     flbas = g_id[26] & 0xFu;
     /* LBAF entry bytes: MS(0:15), LBADS(16:23) -> byte 2. */
     lbads = g_id[128 + flbas * 4 + 2];
-    if (lbads != 9) {
-      kprintf("nvme: LBA size 2^%u unsupported (need 512B)\n",
+    if (nsze == 0) return 0;
+    if (lbads != 9 && lbads != 12) {
+      kprintf("nvme: LBA size 2^%u unsupported (need 512B or 4K)\n",
               (unsigned)lbads);
       return 0;
     }
-    if (nsze == 0) return 0;
-    g_nsze = nsze;
+    g_lbads = lbads;
+    /* Block layer speaks 512B sectors: count capacity in those units
+     * (capped at 2^32-1, the layer's LBA width). */
+    {
+      uint64_t n512 = nsze << (lbads - 9);
+      if (n512 > 0xFFFFFFFFULL) n512 = 0xFFFFFFFFULL;
+      g_nsze = n512;
+    }
+    kprintf("nvme: %u-byte blocks\n", (unsigned)(1u << lbads));
   }
   g_ok = 1;
   return 1;
@@ -248,26 +257,44 @@ int nvme_init(void) {
 
 uint64_t nvme_sectors(void) { return g_nsze; }
 
-int nvme_read(uint32_t lba, uint8_t count, void *buf) {
-  uint8_t *out = (uint8_t *)buf;
-  if (!g_ok || count == 0 || !buf) return -1;
+/* 512B-sector I/O over lbads-sized namespace blocks. Consecutive
+ * sectors sharing a block go in one command; partial-block writes
+ * pre-read the page (g_io is a full 4K page). */
+static int blk512(int is_write, uint32_t lba, uint8_t count, uint8_t *buf) {
+  uint32_t shift = (uint32_t)g_lbads - 9u; /* 0 for 512B, 3 for 4K */
+  uint32_t per = 1u << shift;              /* 512B sectors per block */
+  uint32_t s = 0;
   if ((uint64_t)lba + count > g_nsze) return -1;
-  for (uint32_t s = 0; s < count; s++) {
-    if (io(OP_READ, lba + s, (uint64_t)(uintptr_t)g_io) != 0) return -1;
-    naos_memcpy(out + (uint64_t)s * 512u, g_io, 512);
+  while (s < count) {
+    uint32_t page = (lba + s) >> shift;
+    uint32_t off = (lba + s) & (per - 1u);
+    uint32_t n = per - off;
+    int full;
+    if (n > (uint32_t)(count - s)) n = (uint32_t)(count - s);
+    full = (off == 0 && n == per);
+    if (!is_write || !full) {
+      /* Reads always fetch the page; partial writes pre-read it. */
+      if (io(OP_READ, page, (uint64_t)(uintptr_t)g_io) != 0) return -1;
+    }
+    if (is_write) {
+      naos_memcpy(g_io + off * 512u, buf + (uint64_t)s * 512u, n * 512u);
+      if (io(OP_WRITE, page, (uint64_t)(uintptr_t)g_io) != 0) return -1;
+    } else {
+      naos_memcpy(buf + (uint64_t)s * 512u, g_io + off * 512u, n * 512u);
+    }
+    s += n;
   }
   return 0;
 }
 
-int nvme_write(uint32_t lba, uint8_t count, const void *buf) {
-  const uint8_t *in = (const uint8_t *)buf;
+int nvme_read(uint32_t lba, uint8_t count, void *buf) {
   if (!g_ok || count == 0 || !buf) return -1;
-  if ((uint64_t)lba + count > g_nsze) return -1;
-  for (uint32_t s = 0; s < count; s++) {
-    naos_memcpy(g_io, in + (uint64_t)s * 512u, 512);
-    if (io(OP_WRITE, lba + s, (uint64_t)(uintptr_t)g_io) != 0) return -1;
-  }
-  return 0;
+  return blk512(0, lba, count, (uint8_t *)buf);
+}
+
+int nvme_write(uint32_t lba, uint8_t count, const void *buf) {
+  if (!g_ok || count == 0 || !buf) return -1;
+  return blk512(1, lba, count, (uint8_t *)buf);
 }
 
 void nvme_info(void) {
@@ -286,8 +313,9 @@ void nvme_info(void) {
   for (int i = 0; i < 20; i++) serial[i] = (char)g_id[4 + i];
   serial[20] = '\0';
   kprintf("nvme: model '%s' serial '%s'\n", model, serial);
-  kprintf("nvme: namespace 1: %u blocks x 512B (%u MB)\n",
-          (unsigned)g_nsze, (unsigned)(g_nsze / 2048u));
+  kprintf("nvme: namespace 1: %u blocks x %uB (%u MB)\n",
+          (unsigned)g_nsze, (unsigned)(1u << g_lbads),
+          (unsigned)(g_nsze / 2048u));
 }
 
 /* Write pattern to last LBA, verify, restore original. 0 ok. */

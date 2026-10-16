@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-int nvme_init(void); /* 1 if a usable 512B namespace 1 exists */
+int nvme_init(void); /* 1 if a usable 512B/4K namespace 1 exists */
 uint64_t nvme_sectors(void);
 int nvme_read(uint32_t lba, uint8_t count, void *buf);
 int nvme_write(uint32_t lba, uint8_t count, const void *buf);

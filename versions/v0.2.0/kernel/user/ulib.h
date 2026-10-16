@@ -17,6 +17,10 @@
 #define ULIB_SYS_READ   7
 #define ULIB_SYS_WRITE  8
 #define ULIB_SYS_CLOSE  9
+#define ULIB_SYS_SEEK   10 /* fd, offset, whence -> new pos or negative */
+#define ULIB_SEEK_SET   0
+#define ULIB_SEEK_CUR   1
+#define ULIB_SEEK_END   2
 
 static inline long u_sys0(int n) {
   long r;
@@ -87,6 +91,11 @@ static inline long u_write(long fd, const void *buf, unsigned long len) {
 
 static inline long u_close(long fd) {
   return u_sys1(ULIB_SYS_CLOSE, (unsigned long)fd);
+}
+
+static inline long u_seek(long fd, long off, unsigned long whence) {
+  return u_sys3(ULIB_SYS_SEEK, (unsigned long)fd, (unsigned long)off,
+                whence);
 }
 
 static inline size_t u_strlen(const char *s) {

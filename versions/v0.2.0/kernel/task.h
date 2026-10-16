@@ -36,6 +36,8 @@ typedef struct {
 #define SYS_READ   7 /* RDI=fd RSI=buf RDX=len: bytes or negative */
 #define SYS_WRITE  8 /* RDI=fd RSI=buf RDX=len: bytes or negative */
 #define SYS_CLOSE  9 /* RDI=fd: 0 ok, negative on error */
+#define SYS_SEEK   10 /* RDI=fd RSI=off RDX=whence(0=set,1=cur,2=end):
+                         new pos or negative */
 
 typedef enum {
   T_EMPTY = 0,

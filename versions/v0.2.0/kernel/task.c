@@ -46,6 +46,7 @@ static int sys_open(isr_frame_t *f);
 static int64_t sys_read(isr_frame_t *f);
 static int64_t sys_write(isr_frame_t *f);
 static int sys_close(isr_frame_t *f);
+static int64_t sys_seek(isr_frame_t *f);
 static void fds_init(int id);
 static void fds_cleanup(int id);
 
@@ -264,6 +265,9 @@ void sched_syscall(isr_frame_t *f) {
     case SYS_CLOSE:
       f->rax = (uint64_t)(int64_t)sys_close(f);
       break;
+    case SYS_SEEK:
+      f->rax = (uint64_t)(int64_t)sys_seek(f);
+      break;
     default:
       f->rax = (uint64_t)-1;
       break;
@@ -412,19 +416,50 @@ static int64_t sys_write(isr_frame_t *f) {
     if (len == 0) return 0;
     if (len > sizeof(kb)) len = sizeof(kb);
     if (!user_range_ok(&g_tasks[g_current], f->rsi, len)) return -1;
-    if (fd->wlen + len > FD_WRITE_CAP) return -1;
+    if (fd->pos > fd->wlen) fd->pos = fd->wlen;
+    if ((uint64_t)fd->pos + len > FD_WRITE_CAP) return -1;
     if (!fd->wbuf) {
       uint64_t b = pmm_alloc_page();
       if (!b) return -4;
       fd->wbuf = (char *)(uintptr_t)b;
       fd->wlen = 0;
+      fd->pos = 0;
     }
     naos_memcpy(kb, (const void *)(uintptr_t)f->rsi, (size_t)len);
-    naos_memcpy(fd->wbuf + fd->wlen, kb, (size_t)len);
-    fd->wlen += (uint32_t)len;
-    fd->pos = fd->wlen;
+    naos_memcpy(fd->wbuf + fd->pos, kb, (size_t)len);
+    fd->pos += (uint32_t)len;
+    if (fd->pos > fd->wlen) fd->wlen = fd->pos;
     return (int64_t)len;
   }
+}
+
+/* Reposition an open file. RDI=fd RSI=offset RDX=whence (0=set, 1=cur,
+ * 2=end). Read mode ranges over [0, size] (past-end reads yield 0);
+ * write mode ranges over the staged [0, wlen] so programs can overwrite,
+ * not just append (no sparse files: past-end seeks clamp). Returns the
+ * new position, negative on error. */
+static int64_t sys_seek(isr_frame_t *f) {
+  int id = (int)f->rdi;
+  int64_t off = (int64_t)f->rsi;
+  int wh = (int)f->rdx;
+  ffd_t *fd;
+  uint32_t size, base;
+  int64_t np;
+  if (id < 3 || id >= MAX_FDS) return -1;
+  fd = &g_tasks[g_current].fds[id];
+  if (!fd->used) return -1;
+  if (wh < 0 || wh > 2) return -1;
+  size = fd->write ? fd->wlen : fd->size;
+  base = (wh == 0) ? 0 : (wh == 1 ? fd->pos : size);
+  np = (int64_t)base + off;
+  if (np < 0) return -1;
+  if (fd->write) {
+    if (np > (int64_t)size) np = size; /* clamp: no sparse staging */
+  } else if (np > 0x7FFFFFFFu) {
+    return -1;
+  }
+  fd->pos = (uint32_t)np;
+  return np;
 }
 
 static int sys_close(isr_frame_t *f) {

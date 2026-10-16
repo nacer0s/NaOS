@@ -6,6 +6,18 @@ All notable changes to NaOS are documented here. Format follows [Keep a Changelo
 
 Goal: v0.1.0 shell + files + network, plus a TCP server — `serve` answers HTTP from NaOS itself.
 
+### Added - 2026-10-16 (own TLS 1.2 client: `get-page-tls`)
+
+* `kernel/net/tls_{aes,prf,bn,p256,rsa,x509}.c` + `tls.c` (`get-page-tls <ip|host> <port> </path>`): from-scratch TLS 1.2 client, single suite `ECDHE_RSA_AES_128_GCM_SHA256 (0xC02F)` on secp256r1 with RSA-2048 PKCS#1 v1.5/SHA-256 signatures and an own X.509 chain check against the built-in TEST CA (`tls_ca.h`, localhost only — replace before real use). Nonces/keys come from a SHA-256 counter DRBG (not certified, documented in-code).
+* Verified live against OpenSSL: `handshake done (ECDHE_RSA_AES_128_GCM_SHA256)`, server confirms `TLSv1.2 ('ECDHE-RSA-AES128-GCM-SHA256', ...)`, response body byte-exact. Independently proven with a static-ECDHE stub server + offline recomputation: PMS, master, keys, Finished decrypt and verify_data all match.
+* Interop bugs found and fixed: ClientKeyExchange used handshake type 4 instead of 16 (server RST); key_block split as salt,salt,key,key instead of RFC 5246 key,key,IV,IV; `p_hash` scratch buffer 96B truncated the 109B master-secret seed (stack over-read — master/keys were garbage); peer explicit nonces must be accepted as-sent (OpenSSL randomizes them); post-handshake close_notify must be GCM-encrypted; bare-close HTTP/1.0 bodies count as success once headers complete.
+
+### Added - 2026-10-16 (`SYS_SEEK`, `show-drives`, `install-system`)
+
+* `SYS_SEEK 10` (`kernel/task.c`, `ulib.h ULIB_SYS_SEEK` + `SEEK_SET/CUR/END`, `progs/seektest.c`): read `[0,size]`, write clamped to length, no sparse files. Live `seektest` 13 checks ALL PASS.
+* `show-drives` + `install-system <id> erase` (`kernel/fs/install.c`, `kernel/fs/mkfs.c fat_format()` superfloppy formatter): unified block layer (`kernel/drv/blk.c` — AHCI multi-port, ATA LBA48, NVMe 4K via paged `blk512()`), whole-disk file copy in 8KB chunks, refuses the boot volume. Proof: live ISO installed to a blank 256MB AHCI disk (18 entries), native boot ALL PASS.
+* Verified on the final image: 21-assertion QEMU serial+HMP battery ALL PASS (LFN + NaFS + version regressions) plus end-to-end `get-page-tls` above.
+
 ### Added - 2026-10-15 (NaOS-FS writes)
 
 * `nafs write <fat-src> </nafs-dst>` + `nafs delete </file>` (`kernel/fs/nafs.c`, shell + usage): whole-image edit in the 128KB `g_img` work buffer, source streamed via `fat_read_at`, allocation by first-fit `alloc_run` over `mark_used`, write-back through `fat_write` + quiet remount (revalidates checksum, refreshes the host cluster). Limits: image cap 128KB, read cap 16KB.

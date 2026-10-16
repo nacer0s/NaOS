@@ -2,16 +2,16 @@
 
 A usable x86_64 UEFI operating system built **from scratch (0), in C** — no GRUB, no Limine, no gnu-efi, no prebuilt bootloader or kernel. See [IDEA.md](IDEA.md) for the full vision, tree, flow and workflow.
 
-Status: **v0.2.0 in development** — everything in v0.1.0, plus a TCP server (`listen`/`accept`, serve files over HTTP) and NaOS-FS writes (`nafs write`/`delete`). `BOOTX64.EFI` loads `KERNEL.ELF`, and the kernel runs
+Status: **v0.2.0 in development** — everything in v0.1.0, plus a TCP server (`listen`/`accept`, serve files over HTTP), NaOS-FS writes (`file-system write`/`delete`), an own TLS 1.2 client (`get-page-tls`, suite `ECDHE_RSA_AES_128_GCM_SHA256`), disk install (`show-drives`, `install-system`), and file seek (`SYS_SEEK`). `BOOTX64.EFI` loads `KERNEL.ELF`, and the kernel runs
 a `NaOS>` shell on a black GOP console with PS/2 and USB-HID keyboard input
-(`help version about clear print memory test crash list go read make-folder make-file copy move rename edit delete run tasks kill time date uptime beep pci settings font usb nvme nafs net dhcp dns fetch serve update ping reboot shutdown`), own paging (PML4),
+(`help show-version about-system clear-screen print-text show-memory run-tests force-crash show-files open-folder read-file make-folder make-file copy-file move-file rename-file edit-file delete-file run-program show-tasks stop-task show-time show-date show-uptime play-beep show-pci show-settings set-font find-keyboard show-nvme show-drives install-system file-system show-network get-address find-address get-page get-page-tls serve-file system-update ping-address reboot-system shut-down`), own paging (PML4),
 a `kmalloc`/`kfree` heap, an AHCI/NVMe/ATA+FAT32 filesystem (read+write, long filenames), and preemptive multitasking
 (ring-3 tasks with private address spaces, syscalls, `fork()` with copy-on-write, round-robin scheduler,
-disk-loaded ELF programs with file I/O (`open`/`read`/`write`/`close`, stdout on fd 1)). Command output redirects with `<cmd> > <file>`, and `/SETTINGS.TXT`
+disk-loaded ELF programs with file I/O (`open`/`read`/`write`/`close`/`seek`, stdout on fd 1)). Command output redirects with `<cmd> > <file>`, and `/SETTINGS.TXT`
 styles the prompt and console colors. Networking (E1000 ARP + ICMP ping, UDP sockets, DHCP client,
-TCP client with HTTP `fetch`, TCP server with `serve`, default 10.0.2.15/24)
+TCP client with HTTP `fetch`, TCP server with `serve`, own TLS 1.2 client with `get-page-tls`, default 10.0.2.15/24)
 works under QEMU user-net out of the box (q35 defaults to an E1000 on user-net, same as `make run`),
-then `net`, `dhcp`, `ping 10.0.2.2`, and `fetch 10.0.2.2 8099 /path` (needs an HTTP server on the host).
+then `show-network`, `get-address`, `ping-address 10.0.2.2`, and `get-page 10.0.2.2 8099 /path` (needs an HTTP server on the host).
 
 ## Download & website
 
