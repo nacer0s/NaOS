@@ -6,6 +6,11 @@ All notable changes to NaOS are documented here. Format follows [Keep a Changelo
 
 Goal: v0.1.0 shell + files + network, plus a TCP server — `serve` answers HTTP from NaOS itself.
 
+### Added - 2026-10-16 (PCI all-buses scan: devices behind bridges found)
+
+* `pci_find_class/pi/vendor` + `pci_list` now walk buses 0..255 via a shared `pci_each` iterator (was: bus 0 only) — every driver (AHCI/NVMe/e1000/xHCI) inherits it, no driver changes. `pci_list` prints the real bus (`1:0.0`, was hardcoded `00:`).
+* Why: real-hardware round 8 showed the laptop SSD (NVMe behind a root-port bridge) invisible to the OS. Proven in QEMU with NVMe behind `pcie-root-port`: `1:0.0 1/8 1b36:10 MSIX` listed, `show-nvme` selftest OK on the bridged device, `show-drives` offers it; bus-0 behavior unchanged (`e1000` HTTP, AHCI drives, `run-tests` ALL PASS).
+
 ### Added - 2026-10-16 (`run-tests` aggregates heap + crypto self-tests)
 
 * `run-tests` now runs heap + `sha256`/`hmac`/`aes128`/`gcm`/`tls-hs` with per-test OK/FAIL and a total (was: heap only; the crypto selftests existed but nothing called them). New `tls_hs_selftest()` (`kernel/net/tls_prf.c`): fixed-vector master/key-block/both-Finished against an independent Python reference.

@@ -1,5 +1,5 @@
-/* NaOS PCI config access via 0xCF8/0xCFC. Bus 0 scan (QEMU + most PCs'
- * boot hardware lives there; bridges beyond are out of scope v1). */
+/* NaOS PCI config access via 0xCF8/0xCFC. All-buses scan: firmware owns
+ * bus numbering, so walk 0..255 (empty slots master-abort to 0xFFFF). */
 #include "pci.h"
 #include "../lib/kprintf.h"
 #include "../../common/io.h"
@@ -44,6 +44,62 @@ void pci_write32(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off,
   naos_outl(CFG_DATA, v);
 }
 
+/* Walk every present function on every bus. fn returns 1 to stop.
+ * Returns 1 when stopped early. */
+typedef int (*pci_each_fn)(uint8_t bus, uint8_t slot, uint8_t func,
+                           void *ctx);
+static int pci_each(pci_each_fn fn, void *ctx) {
+  uint16_t b;
+  for (b = 0; b < 256; b++) {
+    uint8_t s;
+    for (s = 0; s < 32; s++) {
+      uint8_t f, nf;
+      if (pci_read16((uint8_t)b, s, 0, 0) == 0xFFFF) continue;
+      nf = (pci_read8((uint8_t)b, s, 0, 0x0E) & 0x80) ? 8 : 1;
+      for (f = 0; f < nf; f++) {
+        if (pci_read16((uint8_t)b, s, f, 0) == 0xFFFF) continue;
+        if (fn((uint8_t)b, s, f, ctx)) return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+typedef struct {
+  uint8_t class_, subclass, progif;
+  uint8_t bus, slot, func;
+} class_ctx_t;
+
+static int class_match(uint8_t bus, uint8_t slot, uint8_t func, void *ctx) {
+  class_ctx_t *c = (class_ctx_t *)ctx;
+  if (pci_read8(bus, slot, func, 0x0B) == c->class_ &&
+      pci_read8(bus, slot, func, 0x0A) == c->subclass &&
+      (c->progif == 0xFF || pci_read8(bus, slot, func, 0x09) == c->progif)) {
+    c->bus = bus;
+    c->slot = slot;
+    c->func = func;
+    return 1;
+  }
+  return 0;
+}
+
+typedef struct {
+  uint16_t vendor, device;
+  uint8_t bus, slot, func;
+} vendor_ctx_t;
+
+static int vendor_match(uint8_t bus, uint8_t slot, uint8_t func, void *ctx) {
+  vendor_ctx_t *c = (vendor_ctx_t *)ctx;
+  if (pci_read16(bus, slot, func, 0x00) == c->vendor &&
+      pci_read16(bus, slot, func, 0x02) == c->device) {
+    c->bus = bus;
+    c->slot = slot;
+    c->func = func;
+    return 1;
+  }
+  return 0;
+}
+
 int pci_find_class(uint8_t class_, uint8_t subclass,
                    uint8_t *bus, uint8_t *slot, uint8_t *func) {
   return pci_find_class_pi(class_, subclass, 0xFF, bus, slot, func);
@@ -51,41 +107,27 @@ int pci_find_class(uint8_t class_, uint8_t subclass,
 
 int pci_find_class_pi(uint8_t class_, uint8_t subclass, uint8_t progif,
                       uint8_t *bus, uint8_t *slot, uint8_t *func) {
-  for (uint8_t s = 0; s < 32; s++) {
-    if (pci_read16(0, s, 0, 0) == 0xFFFF) continue;
-    uint8_t nf = (pci_read8(0, s, 0, 0x0E) & 0x80) ? 8 : 1;
-    for (uint8_t f = 0; f < nf; f++) {
-      if (pci_read16(0, s, f, 0) == 0xFFFF) continue;
-      if (pci_read8(0, s, f, 0x0B) == class_ &&
-          pci_read8(0, s, f, 0x0A) == subclass &&
-          (progif == 0xFF || pci_read8(0, s, f, 0x09) == progif)) {
-        *bus = 0;
-        *slot = s;
-        *func = f;
-        return 1;
-      }
-    }
-  }
-  return 0;
+  class_ctx_t c;
+  c.class_ = class_;
+  c.subclass = subclass;
+  c.progif = progif;
+  if (!pci_each(class_match, &c)) return 0;
+  *bus = c.bus;
+  *slot = c.slot;
+  *func = c.func;
+  return 1;
 }
 
 int pci_find_vendor(uint16_t vendor, uint16_t device,
                     uint8_t *bus, uint8_t *slot, uint8_t *func) {
-  for (uint8_t s = 0; s < 32; s++) {
-    if (pci_read16(0, s, 0, 0) == 0xFFFF) continue;
-    uint8_t nf = (pci_read8(0, s, 0, 0x0E) & 0x80) ? 8 : 1;
-    for (uint8_t f = 0; f < nf; f++) {
-      if (pci_read16(0, s, f, 0) == 0xFFFF) continue;
-      if (pci_read16(0, s, f, 0x00) == vendor &&
-          pci_read16(0, s, f, 0x02) == device) {
-        *bus = 0;
-        *slot = s;
-        *func = f;
-        return 1;
-      }
-    }
-  }
-  return 0;
+  vendor_ctx_t c;
+  c.vendor = vendor;
+  c.device = device;
+  if (!pci_each(vendor_match, &c)) return 0;
+  *bus = c.bus;
+  *slot = c.slot;
+  *func = c.func;
+  return 1;
 }
 
 uint8_t pci_find_cap(uint8_t bus, uint8_t slot, uint8_t func, uint8_t cap) {
@@ -105,19 +147,18 @@ uint8_t pci_find_cap(uint8_t bus, uint8_t slot, uint8_t func, uint8_t cap) {
   return 0;
 }
 
+static int list_one(uint8_t bus, uint8_t slot, uint8_t func, void *ctx) {
+  (void)ctx;
+  kprintf("%x:%x.%u  %x/%x %x:%x%s\n", (unsigned)bus, (unsigned)slot,
+          (unsigned)func, (unsigned)pci_read8(bus, slot, func, 0x0B),
+          (unsigned)pci_read8(bus, slot, func, 0x0A),
+          (unsigned)pci_read16(bus, slot, func, 0x00),
+          (unsigned)pci_read16(bus, slot, func, 0x02),
+          pci_find_cap(bus, slot, func, 0x11) ? " MSIX" : "");
+  return 0;
+}
+
 void pci_list(void) {
   kprintf("bus:slot.func class/subclass vendor:device flags\n");
-  for (uint8_t s = 0; s < 32; s++) {
-    if (pci_read16(0, s, 0, 0) == 0xFFFF) continue;
-    uint8_t nf = (pci_read8(0, s, 0, 0x0E) & 0x80) ? 8 : 1;
-    for (uint8_t f = 0; f < nf; f++) {
-      if (pci_read16(0, s, f, 0) == 0xFFFF) continue;
-      kprintf("00:%x.%u  %x/%x %x:%x%s\n", (unsigned)s, (unsigned)f,
-              (unsigned)pci_read8(0, s, f, 0x0B),
-              (unsigned)pci_read8(0, s, f, 0x0A),
-              (unsigned)pci_read16(0, s, f, 0x00),
-              (unsigned)pci_read16(0, s, f, 0x02),
-              pci_find_cap(0, s, f, 0x11) ? " MSIX" : "");
-    }
-  }
+  pci_each(list_one, 0);
 }
