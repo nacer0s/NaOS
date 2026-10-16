@@ -27,13 +27,14 @@ then `show-network`, `get-address`, `ping-address 10.0.2.2`, and `get-page 10.0.
 | NASM | 3.02 | `kernel/entry.asm`, ISR stubs |
 | GNU Make | 4.4.1 | Build |
 | `x86_64-w64-mingw32-gcc` | 16.2.0 | Bootloader `BOOTX64.EFI` (PE+, correct tool for EFI) |
-| `x86_64-elf-gcc` + `ld` | 16.2.0 / 2.47 (`/opt/cross`) | Kernel `KERNEL.ELF` (ELF64) |
+| `x86_64-elf-gcc` + `ld` | 16.2.0 / 2.47 (`/opt/cross`, Windows) · 7.1.0 / 2.28 (`/opt/cross`, Arch) — both verified | Kernel `KERNEL.ELF` (ELF64) |
 | mtools (`mformat/mcopy`) + dosfstools | 4.0.49 / 4.2 | Build FAT ESP image |
 | Python + Pillow + DejaVu Sans Mono | 3.14.8 / 12.3.0 / 2.37 | Rasterize console font at build time |
 | xorriso | 1.5.8.2-1 | Build bootable ISO (`make iso`) |
 | Python | 3.14.8 | Helper scripts |
 
 All on Windows + **MSYS2 UCRT64**. QEMU installed via `winget`, rest via `pacman` + cross-compiler built from source per https://wiki.osdev.org/GCC_Cross-Compiler.
+Also verified on **Arch Linux** (QEMU 11.1.2 + `edk2-ovmf`, system mingw/nasm/mtools/xorriso, existing `/opt/cross` 7.1.0 toolchain) — `Makefile`/`check.sh` auto-detect Arch OVMF + font paths, and the link scripts pin explicit `PHDRS` so ld 2.28 and 2.47 agree.
 
 ## One-time setup (MSYS2 UCRT64)
 
@@ -110,7 +111,7 @@ You must know before trying:
 | Storage | AHCI port 0 → NVMe (admin depth 64 + IO depth 32, one queue pair) → ATA PIO (LBA0 signature probe) → live RAM copy of the boot volume |
 | Network | E1000 · ARP/ICMP/UDP(68→67 DHCP)/TCP client+server(1460 MSS, 4KB window) · DNS:53 · default 10.0.2.15/24 via 10.0.2.2 |
 | Filesystems | FAT32 R/W (LFN reads + LFN-aware writes) · NaOS-FS v1 read/write (512B blocks, 16×32B dirents, depth 8, 128KB image cap) |
-| Artifacts | BOOTX64.EFI ~17 KB · KERNEL.ELF ~214 KB · DATA.NAFS 94,720 B · ESP 64MiB · ISO ~64.6 MiB |
+| Artifacts | BOOTX64.EFI ~17 KB · KERNEL.ELF ~203 KB · DATA.NAFS 94,720 B · ESP 64MiB · ISO ~64.6 MiB |
 
 ## Layout
 

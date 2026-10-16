@@ -6,6 +6,13 @@ All notable changes to NaOS are documented here. Format follows [Keep a Changelo
 
 Goal: v0.1.0 shell + files + network, plus a TCP server — `serve` answers HTTP from NaOS itself.
 
+### Fixed - 2026-10-16 (linker compat: explicit PHDRS + 4K page size)
+
+* `kernel/link.ld` + `progs/user.ld` now declare explicit `PHDRS` (two `PT_LOAD` for the kernel, one for programs): the older `/opt/cross` ld 2.28 emits an extra zero-based LOAD when segments are implicit — the kernel was refused by `elf_load` (code 107, `p_paddr < 1M`) and progs landed at vaddr `0x40000000`, outside the task window (refused with -3). Layout is now identical on ld 2.28 and 2.47.
+* `Makefile` links with `-z max-page-size=0x1000 -z common-page-size=0x1000`: without it ld pads segments to 2M, bloating every prog ELF past the 128KB `task_spawn_elf` cap. KERNEL.ELF back to ~203KB, progs ~9KB.
+* `Makefile`/`tools/check.sh`: Arch paths for OVMF (`/usr/share/edk2-ovmf/...`) and DejaVu (`/usr/share/fonts/...`); script exec bits restored for Linux clones.
+* Verified on Arch (QEMU 11.1.2, OVMF `OVMF_CODE.4m.fd`, GCC 7.1.0): clean rebuild zero warnings, boot to `NaOS>`, 6/6 HMP battery (`show-version`, `show-pci`, `show-nvme`, `seektest ALL PASS`, `hello from disk`).
+
 ### Fixed - 2026-10-16 (driver hardening: NVMe 4K, PCI caps, virtio hint)
 
 * NVMe: `nvme_info` printed 512B-sector counts as blocks (wrong on 4K); now tracks `g_ns_blocks` and prints `blocks x B (MB)` correctly. `nvme_selftest` adds a 4K cross-block phase (`read/write 8 sectors @ LBA 4`, spans two 4K pages) on `lbads=12` namespaces; 512B path unchanged. Verified boot+mount on QEMU 4K NVMe (`logical_block_size=4096`): `nvme: 4096-byte blocks`, `blk: using nvme`, FAT mounts.

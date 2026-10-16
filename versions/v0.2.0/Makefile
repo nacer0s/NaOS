@@ -62,6 +62,11 @@ KERN_ASM_OBJS := $(BUILD)/kern/entry.o $(BUILD)/kern/load.o $(BUILD)/kern/stubs.
 KERN_OBJS  := $(addprefix $(BUILD)/kern/,$(notdir $(KERN_SRCS:.c=.o))) \
               $(KERN_ASM_OBJS)
 KERN_LD    := kernel/link.ld
+# Compact PT_LOAD file offsets: without this, ld pads segments to the
+# default 2M page size, bloating KERNEL.ELF to ~2MB and every prog ELF past
+# the 128KB task_spawn_elf scratch cap (progs then refuse with -3).
+# Both ld 2.28 (/opt/cross) and ld 2.47 understand these -z flags.
+LD_PAGEFLAGS := -Wl,-z,max-page-size=0x1000 -Wl,-z,common-page-size=0x1000
 
 VPATH := boot/uefi common kernel kernel/drv kernel/lib kernel/cpu kernel/mm kernel/fs kernel/user kernel/net
 
@@ -87,10 +92,13 @@ FORCE: ;
 $(BOOT_OBJS): $(wildcard boot/uefi/*.h common/*.h)
 $(KERN_OBJS): $(wildcard kernel/*.h kernel/drv/*.h kernel/lib/*.h kernel/net/*.h common/*.h) $(VERSION_H)
 
-# OVMF auto-detect: winget QEMU share first, then MSYS2 locations
+# OVMF auto-detect: winget QEMU share first, then MSYS2 locations,
+# then Linux distro paths (Arch: edk2-ovmf, Debian: qemu)
 OVMF_CANDS := "C:/Program Files/qemu/share/edk2-x86_64-code.fd" \
               /ucrt64/share/qemu/edk2-x86_64-code.fd \
               /mingw64/share/qemu/edk2-x86_64-code.fd \
+              /usr/share/edk2-ovmf/x64/OVMF_CODE.4m.fd \
+              /usr/share/ovmf/x64/OVMF_CODE.4m.fd \
               /usr/share/qemu/edk2-x86_64-code.fd
 OVMF := $(shell for f in $(OVMF_CANDS); do if [ -f "$$f" ]; then echo "$$f"; break; fi; done)
 
@@ -112,7 +120,7 @@ $(EFI_BIN): $(BOOT_OBJS)
 
 # Console font: DejaVu Sans Mono rasterized at build time (host Pillow).
 PY := $(shell if [ -x "/ucrt64/bin/python" ]; then echo "/ucrt64/bin/python"; elif [ -x "C:/msys64/ucrt64/bin/python.exe" ]; then echo "C:/msys64/ucrt64/bin/python.exe"; else echo "python3"; fi)
-FONT_TTF := $(shell for f in /ucrt64/share/fonts/TTF/DejaVuSansMono.ttf "C:/msys64/ucrt64/share/fonts/TTF/DejaVuSansMono.ttf"; do if [ -f "$$f" ]; then echo "$$f"; break; fi; done)
+FONT_TTF := $(shell for f in /ucrt64/share/fonts/TTF/DejaVuSansMono.ttf "C:/msys64/ucrt64/share/fonts/TTF/DejaVuSansMono.ttf" /usr/share/fonts/TTF/DejaVuSansMono.ttf; do if [ -f "$$f" ]; then echo "$$f"; break; fi; done)
 FONT_HDR := $(BUILD)/font_bitmap.h
 FONT_HDR_SM := $(BUILD)/font_bitmap_small.h
 
@@ -145,7 +153,7 @@ $(BUILD)/kern/stubs.o: kernel/cpu/isr.asm | $(BUILD)
 	nasm -f elf64 $< -o $@
 
 $(KERN_ELF): $(KERN_OBJS) $(KERN_LD)
-	$(CROSS_GCC) -nostdlib -T $(KERN_LD) $(KERN_OBJS) -lgcc -o $(KERN_ELF)
+	$(CROSS_GCC) -nostdlib -T $(KERN_LD) $(LD_PAGEFLAGS) $(KERN_OBJS) -lgcc -o $(KERN_ELF)
 	@echo "built: $(KERN_ELF)"
 
 progs: $(PROG_ELFS)
@@ -157,7 +165,7 @@ $(BUILD)/progs/crt0.o: progs/crt0.asm | $(BUILD)
 $(BUILD)/progs/%.elf: progs/%.c $(BUILD)/progs/crt0.o $(PROG_LD) | $(BUILD)
 	@mkdir -p $(dir $@)
 	$(CROSS_GCC) $(PROG_CFLAGS) $< -o $(BUILD)/progs/$*.o
-	$(CROSS_GCC) -nostdlib -T $(PROG_LD) $(BUILD)/progs/crt0.o $(BUILD)/progs/$*.o -o $@
+	$(CROSS_GCC) -nostdlib -T $(PROG_LD) $(LD_PAGEFLAGS) $(BUILD)/progs/crt0.o $(BUILD)/progs/$*.o -o $@
 	@echo "built: $@"
 
 $(BUILD):
