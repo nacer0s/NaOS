@@ -10,7 +10,7 @@ Goal: v0.1.0 shell + files + network, plus a TCP server — `serve` answers HTTP
 
 * TEST trust anchor rotated (`kernel/net/tls_ca.h`): the old anchor's key lived only on the previous dev machine, so no new server certs could chain to it. New CA + server leaf (`tools/mk-test-pki.sh`, reproducible: SAN `IP:10.0.2.2,DNS:naos.test`, RSA-2048, 365d) generated with host OpenSSL; keys stay in `/tmp/naos-pki`, never in the repo. Leaf re-verified with `openssl verify` before baking.
 * Full regression on Arch (QEMU 11.1.2, GCC 7.1.0, zero-warning rebuild), all live against host servers: core 6/6 (boot, `show-version`, new `show-pci` format, `show-nvme`, `seektest ALL PASS`, `hello from disk`), net 9/9 (plain HTTP GET, `system-update check` up-to-date, `update get` + `sha OK` + read-back, `serve-file` via hostfwd + prompt return, `get-page-tls` handshake + body with server confirming `ECDHE-RSA-AES128-GCM-SHA256`), files 21/21 (LFN read/overwrite/rename/delete, NaFS round-trip, regressions), install 8/8 (live `show-drives`, `install-system ahci1 erase`, native boot, version + files). ISO (`make iso`, 67.8MB) also boots to `NaOS>` from CD-ROM.
-* Still open: `get-page-tls <hostname>` SNI path (needs `naos.test → 10.0.2.2` in host `/etc/hosts` so guest DNS resolves it).
+* Still open: nothing — `get-page-tls naos.test` SNI path verified 2026-10-16 via a temporary local dnsmasq shim (`naos.test → 10.0.2.2`, reverted after): guest DNS + SNI send + DNS-SAN verify all pass, 4/4.
 
 ### Fixed - 2026-10-16 (linker compat: explicit PHDRS + 4K page size)
 
