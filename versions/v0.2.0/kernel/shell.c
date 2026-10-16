@@ -307,6 +307,10 @@ static void dispatch(char *line) {
     kprintf("                     compare versions, list files\n");
     kprintf("  system-update get <host> <port> </remote> </local> [sha]\n");
     kprintf("                     download a file, verify its hash\n");
+    kprintf("  system-update check-tls <host> <port> </manifest>\n");
+    kprintf("                     same, over own TLS 1.2\n");
+    kprintf("  system-update get-tls <host> <port> </remote> </local> [sha]\n");
+    kprintf("                     same, over own TLS 1.2\n");
     kprintf("  get-page <ip> <port> </path>\n");
     kprintf("                     HTTP/1.0 GET over TCP, print body\n");
     kprintf("  get-page-tls <host> <port> </path>\n");
@@ -687,9 +691,25 @@ static void dispatch(char *line) {
         update_get(w[1], (uint16_t)port, w[3], w[4], n >= 6 ? w[5] : "");
       else
         kprintf("usage: system-update get <host> <port> </remote> </local> [sha]\n");
+    } else if (n >= 4 && naos_strcmp(w[0], "check-tls") == 0) {
+      for (const char *p = w[2]; *p >= '0' && *p <= '9'; p++)
+        port = port * 10 + (unsigned)(*p - '0');
+      if (port > 0 && port < 65536 && w[3][0] == '/')
+        update_check_tls(w[1], (uint16_t)port, w[3]);
+      else
+        kprintf("usage: system-update check-tls <host> <port> </manifest>\n");
+    } else if (n >= 5 && naos_strcmp(w[0], "get-tls") == 0) {
+      for (const char *p = w[2]; *p >= '0' && *p <= '9'; p++)
+        port = port * 10 + (unsigned)(*p - '0');
+      if (port > 0 && port < 65536 && w[3][0] == '/' && w[4][0] != '\0')
+        update_get_tls(w[1], (uint16_t)port, w[3], w[4], n >= 6 ? w[5] : "");
+      else
+        kprintf("usage: system-update get-tls <host> <port> </remote> </local> [sha]\n");
     } else {
       kprintf("usage: system-update check <host> <port> </manifest>\n");
       kprintf("       update get <host> <port> </remote> </local> [sha]\n");
+      kprintf("       update check-tls <host> <port> </manifest>\n");
+      kprintf("       update get-tls <host> <port> </remote> </local> [sha]\n");
     }
   } else if ((a = after(line, "get-page"))) {
     uint32_t ip = 0;

@@ -5,6 +5,7 @@
 #include "pkt.h"
 #include "net.h"
 #include "tcp.h"
+#include "tls.h"
 #include "dns.h"
 #include "version.h"
 #include "../lib/kprintf.h"
@@ -123,30 +124,9 @@ static int mval(const char *m, const char *key, char *out, uint32_t cap) {
   return -1;
 }
 
-int update_check(const char *host, uint16_t port, const char *mpath) {
-  uint32_t ip;
-  int t, n;
+/* Parse g_manifest (NUL-terminated) and print versions/files. 0 ok. */
+static int report_manifest(void) {
   char ver[32], note[128], nf[16];
-  if (resolve_host(host, &ip) != 0) {
-    kprintf("update: cannot resolve '%s'\n", host);
-    return -1;
-  }
-  if (sha256_selftest() != 0) {
-    kprintf("update: sha selftest FAIL, abort\n");
-    return -1;
-  }
-  t = http_get(ip, port, mpath);
-  if (t < 0) {
-    kprintf("update: fetch failed\n");
-    return -1;
-  }
-  n = http_body(t, (uint8_t *)g_manifest, UP_MAX_MANIFEST);
-  tcp_close(t);
-  if (n <= 0) {
-    kprintf("update: empty manifest\n");
-    return -1;
-  }
-  g_manifest[n] = '\0';
   if (mval(g_manifest, "version", ver, sizeof(ver)) != 0) {
     kprintf("update: bad manifest (no version=)\n");
     return -1;
@@ -182,12 +162,62 @@ int update_check(const char *host, uint16_t port, const char *mpath) {
   return 0;
 }
 
+int update_check(const char *host, uint16_t port, const char *mpath) {
+  uint32_t ip;
+  int t, n;
+  if (resolve_host(host, &ip) != 0) {
+    kprintf("update: cannot resolve '%s'\n", host);
+    return -1;
+  }
+  if (sha256_selftest() != 0) {
+    kprintf("update: sha selftest FAIL, abort\n");
+    return -1;
+  }
+  t = http_get(ip, port, mpath);
+  if (t < 0) {
+    kprintf("update: fetch failed\n");
+    return -1;
+  }
+  n = http_body(t, (uint8_t *)g_manifest, UP_MAX_MANIFEST);
+  tcp_close(t);
+  if (n <= 0) {
+    kprintf("update: empty manifest\n");
+    return -1;
+  }
+  g_manifest[n] = '\0';
+  return report_manifest();
+}
+
 /* Lowercase-hex compare helper. */
 static int hexdig(char c) {
   if (c >= '0' && c <= '9') return c - '0';
   if (c >= 'a' && c <= 'f') return c - 'a' + 10;
   if (c >= 'A' && c <= 'F') return c - 'A' + 10;
   return -1;
+}
+
+/* Finalize a streamed download: compare SHA when requested. 0 ok. */
+static int finish_sha(sha256_t *sh, uint32_t total, const char *sha_hex,
+                      int want_sha) {
+  if (want_sha) {
+    uint8_t sum[32];
+    char hex[65];
+    int ok = 1, i;
+    sha256_final(sh, sum);
+    sha256_hex(sum, hex);
+    for (i = 0; i < 64; i++) {
+      int a = hexdig(hex[i]), b = hexdig(sha_hex[i]);
+      if (a < 0 || b < 0 || a != b) {
+        ok = 0;
+        break;
+      }
+    }
+    kprintf("update: %u bytes, sha %s\n", (unsigned)total,
+            ok ? "OK" : "MISMATCH");
+    return ok ? 0 : -1;
+  }
+  kprintf("update: %u bytes (unverified)\n", (unsigned)total);
+  return 0;
 }
 
 int update_get(const char *host, uint16_t port, const char *remotepath,
@@ -282,25 +312,7 @@ int update_get(const char *host, uint16_t port, const char *remotepath,
     }
   }
   tcp_close(t);
-  if (want_sha) {
-    uint8_t sum[32];
-    char hex[65];
-    int ok = 1;
-    sha256_final(&sh, sum);
-    sha256_hex(sum, hex);
-    for (int i = 0; i < 64; i++) {
-      int a = hexdig(hex[i]), b = hexdig(sha_hex[i]);
-      if (a < 0 || b < 0 || a != b) {
-        ok = 0;
-        break;
-      }
-    }
-    kprintf("update: %u bytes, sha %s\n", (unsigned)total,
-            ok ? "OK" : "MISMATCH");
-    return ok ? 0 : -1;
-  }
-  kprintf("update: %u bytes (unverified)\n", (unsigned)total);
-  return 0;
+  return finish_sha(&sh, total, sha_hex, want_sha);
 }
 
 /* Decimal u32 into buf. Returns length. */
@@ -493,4 +505,119 @@ int net_serve(uint16_t port, const char *localpath) {
   kprintf("serve: sent %u bytes\n", (unsigned)pos);
   tcp_close(t);
   return (pos == size) ? 0 : -1;
+}
+
+/* ---- TLS transport (own TLS 1.2): same manifest/file logic, bytes
+ * arrive through tls_fetch callbacks (headers already stripped). ---- */
+
+static uint32_t g_tls_n;    /* collected body bytes */
+static int g_tls_over;      /* 1 = cap hit or disk error, rest ignored */
+static sha256_t g_tls_sh;   /* running hash for get-tls */
+static const char *g_tls_local; /* fat path for get-tls */
+
+/* Split host-or-IP into tls_connect params. 0 ok. */
+static int tls_params(const char *h, uint32_t *ip, const char **host,
+                      uint8_t ipb[4]) {
+  if (net_parse_ip(h, ip) == 0) {
+    ipb[0] = (uint8_t)(*ip >> 24);
+    ipb[1] = (uint8_t)(*ip >> 16);
+    ipb[2] = (uint8_t)(*ip >> 8);
+    ipb[3] = (uint8_t)*ip;
+    *host = 0;
+    return 0;
+  }
+  if (dns_resolve(h, ip) == 0) {
+    *host = h;
+    return 0;
+  }
+  return -1;
+}
+
+static void tls_manifest_cb(const uint8_t *p, uint32_t n, int done) {
+  (void)done;
+  if (!p || g_tls_over) return;
+  if (g_tls_n + n > UP_MAX_MANIFEST) {
+    g_tls_over = 1;
+    return;
+  }
+  naos_memcpy(g_manifest + g_tls_n, p, n);
+  g_tls_n += n;
+}
+
+static void tls_file_cb(const uint8_t *p, uint32_t n, int done) {
+  (void)done;
+  if (!p || g_tls_over) return;
+  if (g_tls_n + n > UP_MAX_FILE) {
+    g_tls_over = 1;
+    return;
+  }
+  sha256_update(&g_tls_sh, p, n);
+  if (fat_append(g_tls_local, p, n) != 0) {
+    g_tls_over = 1;
+    return;
+  }
+  g_tls_n += n;
+}
+
+int update_check_tls(const char *host, uint16_t port, const char *mpath) {
+  uint32_t ip;
+  const char *tls_host;
+  uint8_t ipb[4];
+  if (tls_params(host, &ip, &tls_host, ipb) != 0) {
+    kprintf("update: cannot resolve '%s'\n", host);
+    return -1;
+  }
+  if (sha256_selftest() != 0) {
+    kprintf("update: sha selftest FAIL, abort\n");
+    return -1;
+  }
+  g_tls_n = 0;
+  g_tls_over = 0;
+  if (tls_fetch(ip, port, tls_host, tls_host ? 0 : ipb, mpath,
+                tls_manifest_cb) != 0 ||
+      g_tls_over || g_tls_n == 0) {
+    kprintf("update: fetch failed\n");
+    return -1;
+  }
+  g_manifest[g_tls_n] = '\0';
+  return report_manifest();
+}
+
+int update_get_tls(const char *host, uint16_t port, const char *remotepath,
+                   const char *localpath, const char *sha_hex) {
+  uint32_t ip;
+  const char *tls_host;
+  uint8_t ipb[4];
+  int want_sha = (sha_hex && sha_hex[0]);
+  if (tls_params(host, &ip, &tls_host, ipb) != 0) {
+    kprintf("update: cannot resolve '%s'\n", host);
+    return -1;
+  }
+  if (sha256_selftest() != 0) {
+    kprintf("update: sha selftest FAIL, abort\n");
+    return -1;
+  }
+  if (want_sha) {
+    int n = 0;
+    while (sha_hex[n]) n++;
+    if (n != 64) {
+      kprintf("update: bad sha (need 64 hex)\n");
+      return -1;
+    }
+  }
+  if (fat_write(localpath, "", 0) != 0) {
+    kprintf("update: cannot stage '%s'\n", localpath);
+    return -1;
+  }
+  sha256_init(&g_tls_sh);
+  g_tls_n = 0;
+  g_tls_over = 0;
+  g_tls_local = localpath;
+  if (tls_fetch(ip, port, tls_host, tls_host ? 0 : ipb, remotepath,
+                tls_file_cb) != 0 ||
+      g_tls_over) {
+    kprintf("update: fetch failed\n");
+    return -1;
+  }
+  return finish_sha(&g_tls_sh, g_tls_n, sha_hex, want_sha);
 }

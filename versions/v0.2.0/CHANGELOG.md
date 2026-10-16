@@ -6,6 +6,11 @@ All notable changes to NaOS are documented here. Format follows [Keep a Changelo
 
 Goal: v0.1.0 shell + files + network, plus a TCP server — `serve` answers HTTP from NaOS itself.
 
+### Added - 2026-10-16 (update over own TLS 1.2: `check-tls`/`get-tls`)
+
+* `system-update check-tls <host> <port> </manifest>` + `system-update get-tls <host> <port> </remote> </local> [sha]` (`kernel/net/update.c`, shell + help): same manifest compare and SHA-verified FAT downloads as the plain-TCP path, riding `tls_fetch` (headers stripped, chain verified by the TLS layer). Shared `report_manifest()` + `finish_sha()` with the plain path — its behavior is byte-identical, only refactored. Still TEST anchor; real update hosts need a real root before production use.
+* Verified live on Arch against the test TLS server: `check-tls` up-to-date + note, `get-tls` + `sha OK` + read-back, plus the hostname leg (`check-tls naos.test`, guest DNS → SNI → DNS-SAN) — 5/5 + 1/1.
+
 ### Fixed - 2026-10-16 (TEST PKI rotation + Arch batteries: 44/44)
 
 * TEST trust anchor rotated (`kernel/net/tls_ca.h`): the old anchor's key lived only on the previous dev machine, so no new server certs could chain to it. New CA + server leaf (`tools/mk-test-pki.sh`, reproducible: SAN `IP:10.0.2.2,DNS:naos.test`, RSA-2048, 365d) generated with host OpenSSL; keys stay in `/tmp/naos-pki`, never in the repo. Leaf re-verified with `openssl verify` before baking.
