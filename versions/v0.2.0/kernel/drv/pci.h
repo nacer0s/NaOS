@@ -17,6 +17,12 @@ int pci_find_class(uint8_t class_, uint8_t subclass,
 /* Same, also matching prog-if (e.g. XHCI = 0x0C/0x03/0x30). */
 int pci_find_class_pi(uint8_t class_, uint8_t subclass, uint8_t progif,
                       uint8_t *bus, uint8_t *slot, uint8_t *func);
+/* Find first device with vendor:device IDs. Returns 1, fills bus/s/f. */
+int pci_find_vendor(uint16_t vendor, uint16_t device,
+                    uint8_t *bus, uint8_t *slot, uint8_t *func);
+/* Find a PCI capability (e.g. 0x11 = MSI-X) by ID. Returns its config
+ * offset, or 0 when absent. Safe on header types without a cap list. */
+uint8_t pci_find_cap(uint8_t bus, uint8_t slot, uint8_t func, uint8_t cap);
 void pci_list(void); /* print bus 0 devices (shell `pci` command) */
 
 #endif /* NAOS_PCI_H */

@@ -219,8 +219,13 @@ int e1000_init(void) {
    * polls into forever on dead registers. Net is optional; boot first. */
   did = pci_read16(bus, slot, func, 0x02);
   if (did != 0x100Eu && did != 0x10D3u) {
-    kprintf("e1000: unsupported 8086:%x, net down (need 100E/10D3)\n",
-            (unsigned)did);
+    uint16_t vid = pci_read16(bus, slot, func, 0x00);
+    if (vid == 0x1AF4u && (did == 0x1000u || did == 0x1001u))
+      kprintf("e1000: virtio-net %x:%x found, driver pending (use e1000 -device e1000)\n",
+              (unsigned)vid, (unsigned)did);
+    else
+      kprintf("e1000: unsupported %x:%x, net down (need 8086:100E/10D3)\n",
+              (unsigned)vid, (unsigned)did);
     return 0;
   }
   cmd = pci_read16(bus, slot, func, 0x04);

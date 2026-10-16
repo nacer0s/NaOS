@@ -24,12 +24,12 @@ for _py in /ucrt64/bin/python "C:/msys64/ucrt64/bin/python.exe" python3; do
   if "$_py" -c "import PIL" >/dev/null 2>&1; then echo "ok: Pillow ($_py)"; PIL_OK=1; break; fi
 done
 if [ -z "$PIL_OK" ]; then echo "MISSING: Pillow (pacman -S mingw-w64-ucrt-x86_64-python-pillow)"; ok=0; fi
-for _ttf in /ucrt64/share/fonts/TTF/DejaVuSansMono.ttf "C:/msys64/ucrt64/share/fonts/TTF/DejaVuSansMono.ttf"; do
+for _ttf in /ucrt64/share/fonts/TTF/DejaVuSansMono.ttf "C:/msys64/ucrt64/share/fonts/TTF/DejaVuSansMono.ttf" /usr/share/fonts/TTF/DejaVuSansMono.ttf; do
   if [ -f "$_ttf" ]; then echo "ok: font $_ttf"; TTF_OK=1; break; fi
 done
 if [ -z "$TTF_OK" ]; then echo "MISSING: DejaVuSansMono.ttf (pacman -S mingw-w64-ucrt-x86_64-ttf-dejavu)"; ok=0; fi
 if command -v xorriso >/dev/null 2>&1; then echo "ok: xorriso (ISO builds)"; else echo "note: no xorriso — 'make iso' needs 'pacman -S xorriso' (optional)"; fi
-for f in "C:/Program Files/qemu/share/edk2-x86_64-code.fd" /ucrt64/share/qemu/edk2-x86_64-code.fd /mingw64/share/qemu/edk2-x86_64-code.fd /usr/share/qemu/edk2-x86_64-code.fd; do
+for f in "C:/Program Files/qemu/share/edk2-x86_64-code.fd" /ucrt64/share/qemu/edk2-x86_64-code.fd /mingw64/share/qemu/edk2-x86_64-code.fd /usr/share/edk2-ovmf/x64/OVMF_CODE.4m.fd /usr/share/ovmf/x64/OVMF_CODE.4m.fd /usr/share/qemu/edk2-x86_64-code.fd; do
   if [ -f "$f" ]; then echo "ok: OVMF $f"; OVMF_FOUND=1; break; fi
 done
 if [ -z "$OVMF_FOUND" ]; then echo "MISSING: OVMF edk2-x86_64-code.fd"; ok=0; fi

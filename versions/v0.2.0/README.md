@@ -102,15 +102,15 @@ You must know before trying:
 
 | What | Value |
 |---|---|
-| Shell commands | 40 (see `help`; + `PgUp/PgDn` keys, `> file` redirect with 8KB window) |
-| Syscalls | 10 via `int 0x80`: 0 exit, 1 print, 2 yield, 3 getpid, 4 sleep, 5 fork, 6 open, 7 read, 8 write, 9 close |
+| Shell commands | 43 (see `help`; + `PgUp/PgDn` keys, `> file` redirect with 8KB window) |
+| Syscalls | 11 via `int 0x80`: 0 exit, 1 print, 2 yield, 3 getpid, 4 sleep, 5 fork, 6 open, 7 read, 8 write, 9 close, 10 seek |
 | Tasks / scheduler | 16 slots · 50ms quantum @100Hz · 8 fds per task (opens from 3, 2048B per call, 4KB write buffer) |
 | Memory | kernel @`0x100000` · programs @`0x40100000` · PML4 identity 0–1G · ~52K free pages/256M |
 | Console | 12x24 + 8x16 cells, scales 1–4 · 256-line ring · history 16 · cursor ~1Hz blink |
 | Storage | AHCI port 0 → NVMe (admin depth 64 + IO depth 32, one queue pair) → ATA PIO (LBA0 signature probe) → live RAM copy of the boot volume |
 | Network | E1000 · ARP/ICMP/UDP(68→67 DHCP)/TCP client+server(1460 MSS, 4KB window) · DNS:53 · default 10.0.2.15/24 via 10.0.2.2 |
 | Filesystems | FAT32 R/W (LFN reads + LFN-aware writes) · NaOS-FS v1 read/write (512B blocks, 16×32B dirents, depth 8, 128KB image cap) |
-| Artifacts | BOOTX64.EFI ~17 KB · KERNEL.ELF ~160 KB · DATA.NAFS 94,720 B · ESP 64MiB · ISO ~64.6 MiB |
+| Artifacts | BOOTX64.EFI ~17 KB · KERNEL.ELF ~214 KB · DATA.NAFS 94,720 B · ESP 64MiB · ISO ~64.6 MiB |
 
 ## Layout
 

@@ -1,5 +1,6 @@
-/* NaOS NVMe driver: polled admin + one I/O queue pair, 512B NSID 1.
- * PCI 0x010802, 64-bit BAR0, single outstanding command per queue. */
+/* NaOS NVMe driver: polled admin + one I/O queue pair, NSID 1.
+ * PCI 0x010802, 64-bit BAR0, single outstanding command per queue.
+ * 512B and 4K namespaces via 512B-sector blk512() translation. */
 #ifndef NAOS_NVME_H
 #define NAOS_NVME_H
 

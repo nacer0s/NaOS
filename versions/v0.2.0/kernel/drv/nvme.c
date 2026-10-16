@@ -1,6 +1,6 @@
 /* NaOS NVMe driver. Polled completion (phase tag), one command in
  * flight per queue, 4K-aligned PMM pages for queues/data (identity
- * mapped, so phys == VA). 512-byte namespaces only (v1). */
+ * mapped, so phys == VA). 512B and 4K namespaces via blk512(). */
 #include "nvme.h"
 #include "pci.h"
 #include "../mm/pmm.h"
@@ -40,6 +40,7 @@ static uint64_t g_base; /* mapped BAR0 */
 static uint64_t g_db;   /* doorbell base */
 static uint32_t g_stride;
 static uint64_t g_nsze; /* namespace capacity, in 512B sectors */
+static uint64_t g_ns_blocks; /* namespace capacity, in lbads-sized blocks */
 static uint8_t g_lbads; /* namespace block size as 2^n (9=512B, 12=4K) */
 
 static uint8_t *g_asq;
@@ -242,6 +243,7 @@ int nvme_init(void) {
       return 0;
     }
     g_lbads = lbads;
+    g_ns_blocks = nsze;
     /* Block layer speaks 512B sectors: count capacity in those units
      * (capped at 2^32-1, the layer's LBA width). */
     {
@@ -314,7 +316,7 @@ void nvme_info(void) {
   serial[20] = '\0';
   kprintf("nvme: model '%s' serial '%s'\n", model, serial);
   kprintf("nvme: namespace 1: %u blocks x %uB (%u MB)\n",
-          (unsigned)g_nsze, (unsigned)(1u << g_lbads),
+          (unsigned)g_ns_blocks, (unsigned)(1u << g_lbads),
           (unsigned)(g_nsze / 2048u));
 }
 
@@ -345,6 +347,38 @@ int nvme_selftest(void) {
   if (nvme_write(last, 1, orig) != 0) goto fail;
   kfree(orig);
   kfree(back);
+  /* 4K namespaces: also cover the cross-block path (one 8-sector
+   * write spanning two 4K pages, with partial-page pre-reads). */
+  if (g_lbads == 12 && g_nsze >= 16) {
+    uint8_t *o2 = (uint8_t *)kmalloc(4096);
+    uint8_t *b2 = (uint8_t *)kmalloc(4096);
+    int i;
+    if (!o2 || !b2) {
+      if (o2) kfree(o2);
+      if (b2) kfree(b2);
+      return -1;
+    }
+    if (nvme_read(4, 8, o2) != 0) goto fail2;
+    for (i = 0; i < 4096; i++) b2[i] = (uint8_t)(i * 5 + 1);
+    if (nvme_write(4, 8, b2) != 0) goto fail2;
+    naos_memset(b2, 0, 4096);
+    if (nvme_read(4, 8, b2) != 0) goto fail2;
+    for (i = 0; i < 4096; i++) {
+      if (b2[i] != (uint8_t)(i * 5 + 1)) {
+        kprintf("nvme: selftest 4K mismatch @%d\n", i);
+        goto fail2;
+      }
+    }
+    if (nvme_write(4, 8, o2) != 0) goto fail2;
+    kfree(o2);
+    kfree(b2);
+    return 0;
+  fail2:
+    nvme_write(4, 8, o2); /* best-effort restore */
+    kfree(o2);
+    kfree(b2);
+    return -1;
+  }
   return 0;
 fail:
   nvme_write(last, 1, orig); /* best-effort restore */

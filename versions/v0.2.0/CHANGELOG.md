@@ -6,6 +6,13 @@ All notable changes to NaOS are documented here. Format follows [Keep a Changelo
 
 Goal: v0.1.0 shell + files + network, plus a TCP server — `serve` answers HTTP from NaOS itself.
 
+### Fixed - 2026-10-16 (driver hardening: NVMe 4K, PCI caps, virtio hint)
+
+* NVMe: `nvme_info` printed 512B-sector counts as blocks (wrong on 4K); now tracks `g_ns_blocks` and prints `blocks x B (MB)` correctly. `nvme_selftest` adds a 4K cross-block phase (`read/write 8 sectors @ LBA 4`, spans two 4K pages) on `lbads=12` namespaces; 512B path unchanged. Verified boot+mount on QEMU 4K NVMe (`logical_block_size=4096`): `nvme: 4096-byte blocks`, `blk: using nvme`, FAT mounts.
+* PCI: new `pci_find_vendor()` + `pci_find_cap()` (capability-list walk, 48-step guard, e.g. `0x11` MSI-X); `pci_list` now shows `vendor:device` and `MSIX` when present. No behavior change to existing drivers; groundwork for MSI-X interrupts.
+* Net: `e1000_init` distinguishes virtio-net (`1AF4:1000/1001`) from other unsupported NICs (`virtio-net found, driver pending (use e1000 -device e1000)` vs `unsupported vid:did`). Still refuses MMIO on unknown chips (boot first).
+* Docs: v0.2.0 README numbers `40 -> 43` commands, `10 -> 11` syscalls (`10 seek`), KERNEL.ELF `~160 KB -> ~214 KB` (Oct-16 build).
+
 ### Added - 2026-10-16 (own TLS 1.2 client: `get-page-tls`)
 
 * `kernel/net/tls_{aes,prf,bn,p256,rsa,x509}.c` + `tls.c` (`get-page-tls <ip|host> <port> </path>`): from-scratch TLS 1.2 client, single suite `ECDHE_RSA_AES_128_GCM_SHA256 (0xC02F)` on secp256r1 with RSA-2048 PKCS#1 v1.5/SHA-256 signatures and an own X.509 chain check against the built-in TEST CA (`tls_ca.h`, localhost only — replace before real use). Nonces/keys come from a SHA-256 counter DRBG (not certified, documented in-code).

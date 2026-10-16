@@ -69,16 +69,55 @@ int pci_find_class_pi(uint8_t class_, uint8_t subclass, uint8_t progif,
   return 0;
 }
 
-void pci_list(void) {
-  kprintf("bus:slot.func class/subclass\n");
+int pci_find_vendor(uint16_t vendor, uint16_t device,
+                    uint8_t *bus, uint8_t *slot, uint8_t *func) {
   for (uint8_t s = 0; s < 32; s++) {
     if (pci_read16(0, s, 0, 0) == 0xFFFF) continue;
     uint8_t nf = (pci_read8(0, s, 0, 0x0E) & 0x80) ? 8 : 1;
     for (uint8_t f = 0; f < nf; f++) {
       if (pci_read16(0, s, f, 0) == 0xFFFF) continue;
-      kprintf("00:%x.%u  %x/%x\n", (unsigned)s, (unsigned)f,
+      if (pci_read16(0, s, f, 0x00) == vendor &&
+          pci_read16(0, s, f, 0x02) == device) {
+        *bus = 0;
+        *slot = s;
+        *func = f;
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+uint8_t pci_find_cap(uint8_t bus, uint8_t slot, uint8_t func, uint8_t cap) {
+  uint8_t off;
+  int guard;
+  /* Status bit 4 = capability list present; header type bit 7 =
+   * multifunction is handled by the caller (we get an exact b:s.f). */
+  if (!(pci_read16(bus, slot, func, 0x06) & 0x10u)) return 0;
+  off = (uint8_t)(pci_read8(bus, slot, func, 0x34) & 0xFCu);
+  for (guard = 0; guard < 48 && off >= 0x40u; guard++) {
+    uint8_t id = pci_read8(bus, slot, func, off);
+    uint8_t next = (uint8_t)(pci_read8(bus, slot, func, (uint8_t)(off + 1)) & 0xFCu);
+    if (id == cap) return off;
+    if (next < 0x40u) break;
+    off = next;
+  }
+  return 0;
+}
+
+void pci_list(void) {
+  kprintf("bus:slot.func class/subclass vendor:device flags\n");
+  for (uint8_t s = 0; s < 32; s++) {
+    if (pci_read16(0, s, 0, 0) == 0xFFFF) continue;
+    uint8_t nf = (pci_read8(0, s, 0, 0x0E) & 0x80) ? 8 : 1;
+    for (uint8_t f = 0; f < nf; f++) {
+      if (pci_read16(0, s, f, 0) == 0xFFFF) continue;
+      kprintf("00:%x.%u  %x/%x %x:%x%s\n", (unsigned)s, (unsigned)f,
               (unsigned)pci_read8(0, s, f, 0x0B),
-              (unsigned)pci_read8(0, s, f, 0x0A));
+              (unsigned)pci_read8(0, s, f, 0x0A),
+              (unsigned)pci_read16(0, s, f, 0x00),
+              (unsigned)pci_read16(0, s, f, 0x02),
+              pci_find_cap(0, s, f, 0x11) ? " MSIX" : "");
     }
   }
 }
