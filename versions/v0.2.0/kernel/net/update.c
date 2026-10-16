@@ -363,7 +363,7 @@ int net_serve(uint16_t port, const char *localpath) {
   int li, t;
   /* Validate: absolute FAT path, bounded, no parent escapes. */
   if (!localpath || localpath[0] != '/') {
-    kprintf("usage: serve <port> </file>\n");
+    kprintf("usage: serve-file <port> </file>\n");
     return -1;
   }
   while (localpath[pl] && pl < 64) {

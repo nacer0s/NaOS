@@ -560,7 +560,7 @@ int net_fetch(uint32_t ip, uint16_t port, const char *path) {
   uint32_t hlen = 0, total = 0;
   int in_body = 0;
   if (!path || path[0] != '/') {
-    kprintf("usage: fetch <a.b.c.d> <port> </path>\n");
+    kprintf("usage: get-page <a.b.c.d> <port> </path>\n");
     return -1;
   }
   while (path[pl] && pl < 64) pl++;

@@ -6,6 +6,9 @@
 #include "drv/ps2_kbd.h"
 #include "drv/rtc.h"
 #include "lib/kprintf.h"
+#include "lib/sha256.h"
+#include "net/tls_aes.h"
+#include "net/tls_prf.h"
 #include "mm/pmm.h"
 #include "mm/kmalloc.h"
 #include "fs/fat32.h"
@@ -134,6 +137,12 @@ static void cmd_mem(void) {
           (unsigned)total, (unsigned)(total * 4u),
           (unsigned)free, (unsigned)(free * 4u),
           (unsigned)kmalloc_used_bytes());
+}
+
+/* One named selftest line for run-tests. Returns 1 on failure. */
+static int report_test(const char *name, int r) {
+  kprintf("tests: %s %s\n", name, r == 0 ? "OK" : "FAIL");
+  return r != 0;
 }
 
 static void cmd_heap(void) {
@@ -268,7 +277,7 @@ static void dispatch(char *line) {
     kprintf("  clear-screen       clear the screen\n");
     kprintf("  print-text <text>  show text on screen\n");
     kprintf("  show-memory        show memory info\n");
-    kprintf("  run-tests          check the memory allocator\n");
+    kprintf("  run-tests          heap + crypto self-tests\n");
     kprintf("  force-crash        force a page fault (reboot after)\n");
     kprintf("  show-files [dir]   list files\n");
     kprintf("  open-folder <dir>  go to a folder (open-folder .. goes back, open-folder / goes home)\n");
@@ -365,7 +374,14 @@ static void dispatch(char *line) {
   } else if (after(line, "show-memory")) {
     cmd_mem();
   } else if (after(line, "run-tests")) {
+    int fails = 0;
     cmd_heap();
+    fails += report_test("sha256", sha256_selftest());
+    fails += report_test("hmac", hmac_selftest());
+    fails += report_test("aes128", aes128_selftest());
+    fails += report_test("gcm", gcm_selftest());
+    fails += report_test("tls-hs", tls_hs_selftest());
+    kprintf("tests: %s (%d failures)\n", fails ? "FAILURES" : "ALL PASS", fails);
   } else if (after(line, "force-crash")) {
     kprintf("crash: reading unmapped 0x50000000 (expect PAGE FAULT)...\n");
     volatile uint8_t v = *(volatile uint8_t *)(uintptr_t)0x50000000ULL;

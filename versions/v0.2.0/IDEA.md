@@ -193,7 +193,7 @@ File creation rule: ESP is built with `mformat -i build/NaOS.v0.1.0.img -F -v Na
 
 ## 10. v0.2.0 Plan: TCP listen + server (in development)
 
-* Headline: NaOS answers TCP itself — `serve <port> </file>` serves a FAT file over HTTP/1.0, single connection per call (like `fetch`'s mirror).
+* Headline: NaOS answers TCP itself — `serve-file <port> </file>` serves a FAT file over HTTP/1.0, single connection per call (like `get-page`'s mirror).
 * Design (IRQ-safe): tick context only queues incoming SYNs into a small backlog (no ARP, no blocking in IRQ); `accept()` (command context) ARPs the peer, completes the handshake (SYN-ACK + RTO resends), returns an ESTABLISHED child. Existing send/recv/close paths work on children unchanged.
 * New states `LISTEN`/`SYN_Q`/`SYN_RCVD`; TCB pool grows 2 → 6 (1 listener + 3 backlog + 2 client). Unknown ports keep the silent drop (no RST storms).
 * Verify against a host client through QEMU user-net (`-hostfwd`), then real hardware.

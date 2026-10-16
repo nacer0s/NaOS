@@ -6,7 +6,10 @@ All notable changes to NaOS are documented here. Format follows [Keep a Changelo
 
 Goal: v0.1.0 shell + files + network, plus a TCP server — `serve` answers HTTP from NaOS itself.
 
-### Added - 2026-10-16 (update over own TLS 1.2: `check-tls`/`get-tls`)
+### Added - 2026-10-16 (`run-tests` aggregates heap + crypto self-tests)
+
+* `run-tests` now runs heap + `sha256`/`hmac`/`aes128`/`gcm`/`tls-hs` with per-test OK/FAIL and a total (was: heap only; the crypto selftests existed but nothing called them). New `tls_hs_selftest()` (`kernel/net/tls_prf.c`): fixed-vector master/key-block/both-Finished against an independent Python reference.
+* Proven both directions live: with the Oct-16 `p_hash` 96B bug reintroduced, `tls-hs FAIL` (all others OK); with the fix, `ALL PASS (0 failures)`. Also fixed two stale pre-rename usage strings (`fetch` → `get-page` in `tcp.c`, `serve` → `serve-file` in `update.c`) + matching site/IDEA prose.
 
 * `system-update check-tls <host> <port> </manifest>` + `system-update get-tls <host> <port> </remote> </local> [sha]` (`kernel/net/update.c`, shell + help): same manifest compare and SHA-verified FAT downloads as the plain-TCP path, riding `tls_fetch` (headers stripped, chain verified by the TLS layer). Shared `report_manifest()` + `finish_sha()` with the plain path — its behavior is byte-identical, only refactored. Still TEST anchor; real update hosts need a real root before production use.
 * Verified live on Arch against the test TLS server: `check-tls` up-to-date + note, `get-tls` + `sha OK` + read-back, plus the hostname leg (`check-tls naos.test`, guest DNS → SNI → DNS-SAN) — 5/5 + 1/1.

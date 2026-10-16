@@ -21,5 +21,8 @@ void tls_finished(const uint8_t master[48], int is_client,
 void tls_rand_seed(const uint8_t *seed, uint32_t len);
 void tls_rand(uint8_t *out, uint32_t len);
 int hmac_selftest(void); /* RFC 4231 case 1. 0 ok. */
+/* Handshake KDF chain on fixed vectors (independent Python reference):
+ * master from PMS, key block, both Finished. 0 ok. */
+int tls_hs_selftest(void);
 
 #endif /* NAOS_TLS_PRF_H */
