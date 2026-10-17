@@ -157,7 +157,7 @@ a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-off
       <div class="feat"><span class="n">01</span><h3><i class="fa-solid fa-terminal"></i>40 plain-English commands</h3><p>Files, system, network, power — with history, scrollback, font sizes, output redirect and a themeable prompt.</p></div>
       <div class="feat"><span class="n">02</span><h3><i class="fa-solid fa-hard-drive"></i>AHCI · NVMe · ATA + FAT32 + live RAM copy</h3><p>One block layer, writable FAT32, long filenames. Boots from SATA, NVMe — or straight off the ISO with files.</p></div>
       <div class="feat"><span class="n">03</span><h3><i class="fa-solid fa-code-fork"></i>fork() with CoW</h3><p>Ring-3 programs, private address spaces, preemptive scheduler, copy-on-write fork, file syscalls.</p></div>
-      <div class="feat"><span class="n">04</span><h3><i class="fa-solid fa-network-wired"></i>TCP server + client</h3><p>E1000 driver, ARP/ping, UDP sockets, DHCP lease at boot, DNS — TCP server (<code>serve-file</code>, one file per call) plus the TCP client with HTTP <code>get-page</code> and hash-verified <code>system-update</code>.</p></div>
+      <div class="feat"><span class="n">04</span><h3><i class="fa-solid fa-network-wired"></i>TCP server + client</h3><p>E1000 + virtio-net drivers, ARP/ping, UDP sockets, DHCP lease at boot, DNS — TCP server (<code>serve-file</code>, one file per call) plus the TCP client with HTTP <code>get-page</code> and hash-verified <code>system-update</code>.</p></div>
       <div class="feat"><span class="n">05</span><h3><i class="fa-solid fa-keyboard"></i>PS/2 + USB HID</h3><p>Polled XHCI stack with hotplug rescan, classic PS/2 fallback, PC-speaker beeps.</p></div>
       <div class="feat"><span class="n">06</span><h3><i class="fa-solid fa-compact-disc"></i>ISO export + auto-boot</h3><p>El Torito UEFI image, shell auto-boot fallback, Rufus/DD-mode guide for real hardware.</p></div>
     </div>
@@ -244,7 +244,7 @@ make run-iso       <span class="c"># needs xorriso: boot the ISO itself</span></
       <div class="mile"><b>Files</b> <span>— ATA → AHCI DMA → writable FAT32 + long names</span></div>
       <div class="mile"><b>Multitasking</b> <span>— ring-3 tasks, syscalls, fork() with copy-on-write</span></div>
       <div class="mile"><b>Hardware</b> <span>— PCI scan, XHCI USB keyboard, PC speaker, ACPI power</span></div>
-      <div class="mile"><b>Network</b> <span>— E1000, ARP/ping, UDP/DHCP/DNS, TCP client + updater</span></div>
+      <div class="mile"><b>Network</b> <span>— E1000 + virtio-net, ARP/ping, UDP/DHCP/DNS, TCP client + updater</span></div>
       <div class="mile"><b>NVMe + live ISO</b> <span>— polled driver in the block layer; live RAM copy of the boot volume, boots anywhere</span></div>
     </div>
   </div>

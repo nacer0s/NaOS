@@ -8,7 +8,7 @@ a `NaOS>` shell on a black GOP console with PS/2 and USB-HID keyboard input
 a `kmalloc`/`kfree` heap, an AHCI/NVMe/ATA+FAT32 filesystem (read+write, long filenames), and preemptive multitasking
 (ring-3 tasks with private address spaces, syscalls, `fork()` with copy-on-write, round-robin scheduler,
 disk-loaded ELF programs with file I/O (`open`/`read`/`write`/`close`/`seek`, stdout on fd 1)). Command output redirects with `<cmd> > <file>`, and `/SETTINGS.TXT`
-styles the prompt and console colors. Networking (E1000 ARP + ICMP ping, UDP sockets, DHCP client,
+styles the prompt and console colors. Networking (E1000 or virtio-net: ARP + ICMP ping, UDP sockets, DHCP client,
 TCP client with HTTP `fetch`, TCP server with `serve`, own TLS 1.2 client with `get-page-tls`, default 10.0.2.15/24)
 works under QEMU user-net out of the box (q35 defaults to an E1000 on user-net, same as `make run`),
 then `show-network`, `get-address`, `ping-address 10.0.2.2`, and `get-page 10.0.2.2 8099 /path` (needs an HTTP server on the host).
@@ -109,7 +109,7 @@ You must know before trying:
 | Memory | kernel @`0x100000` · programs @`0x40100000` · PML4 identity 0–1G · ~52K free pages/256M |
 | Console | 12x24 + 8x16 cells, scales 1–4 · 256-line ring · history 16 · cursor ~1Hz blink |
 | Storage | AHCI port 0 → NVMe (admin depth 64 + IO depth 32, one queue pair) → ATA PIO (LBA0 signature probe) → live RAM copy of the boot volume |
-| Network | E1000 · ARP/ICMP/UDP(68→67 DHCP)/TCP client+server(1460 MSS, 4KB window) · DNS:53 · default 10.0.2.15/24 via 10.0.2.2 |
+| Network | E1000 + virtio-net (legacy 0.9x, polled) · ARP/ICMP/UDP(68→67 DHCP)/TCP client+server(1460 MSS, 4KB window) · DNS:53 · default 10.0.2.15/24 via 10.0.2.2 |
 | Filesystems | FAT32 R/W (LFN reads + LFN-aware writes) · NaOS-FS v1 read/write (512B blocks, 16×32B dirents, depth 8, 128KB image cap) |
 | Artifacts | BOOTX64.EFI ~17 KB · KERNEL.ELF ~203 KB · DATA.NAFS 94,720 B · ESP 64MiB · ISO ~64.6 MiB |
 

@@ -39,7 +39,7 @@ KERN_SRCS  := kernel/kmain.c kernel/drv/fb.c kernel/drv/pit.c \
               kernel/drv/acpi.c               kernel/drv/speaker.c kernel/drv/pci.c \
               kernel/drv/ahci.c kernel/drv/blk.c kernel/drv/xhci.c \
               kernel/drv/nvme.c kernel/drv/ramblk.c \
-              kernel/drv/usb_kbd.c kernel/drv/e1000.c \
+              kernel/drv/usb_kbd.c kernel/drv/e1000.c kernel/drv/virtio.c \
               kernel/net/net.c kernel/net/udp.c kernel/net/dhcp.c \
               kernel/net/tcp.c kernel/net/dns.c kernel/net/update.c \
               kernel/net/tls_aes.c kernel/net/tls_prf.c \

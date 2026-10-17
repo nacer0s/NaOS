@@ -6,7 +6,12 @@ All notable changes to NaOS are documented here. Format follows [Keep a Changelo
 
 Goal: v0.1.0 shell + files + network, plus a TCP server — `serve` answers HTTP from NaOS itself.
 
-### Added - 2026-10-16 (PCI all-buses scan: devices behind bridges found)
+### Added - 2026-10-17 (virtio-net driver: second NIC, driver-neutral stack)
+
+* `kernel/drv/virtio.c/.h` — virtio-net over the legacy 0.9x PCI interface (`1AF4:1000` with an I/O BAR): polled TX/RX split rings in identity-mapped PMM pages, 10-byte virtio-net headers stripped/added, no offloads, no interrupts. Modern-only (`1AF4:1042`) and MMIO BARs are refused, not probed.
+* `kernel/net/net.c` now binds through a tiny driver table (`net_drv_t`: init/send/recv/link/mac/counters); e1000 first, virtio-net second, `net: down (no supported NIC)` only when both refuse. `show-network` prints the active driver name.
+* `e1000_init` went silent on non-e1000 NICs (its old "virtio driver pending" / "unsupported" messages were guesses printed before any other driver got a chance).
+* Verified live on QEMU with a virtio-NIC-only guest: `show-network` names `virtio-net`, ping `4/4 replies`, `get-page` fetches over TCP. e1000-only guest re-proven unchanged (`e1000` active, HTTP OK, `run-tests` ALL PASS).
 
 * `pci_find_class/pi/vendor` + `pci_list` now walk buses 0..255 via a shared `pci_each` iterator (was: bus 0 only) — every driver (AHCI/NVMe/e1000/xHCI) inherits it, no driver changes. `pci_list` prints the real bus (`1:0.0`, was hardcoded `00:`).
 * Why: real-hardware round 8 showed the laptop SSD (NVMe behind a root-port bridge) invisible to the OS. Proven in QEMU with NVMe behind `pcie-root-port`: `1:0.0 1/8 1b36:10 MSIX` listed, `show-nvme` selftest OK on the bridged device, `show-drives` offers it; bus-0 behavior unchanged (`e1000` HTTP, AHCI drives, `run-tests` ALL PASS).

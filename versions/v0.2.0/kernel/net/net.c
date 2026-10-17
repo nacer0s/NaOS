@@ -5,6 +5,7 @@
 #include "udp.h"
 #include "tcp.h"
 #include "../drv/e1000.h"
+#include "../drv/virtio.h"
 #include "../drv/pit.h"
 #include "../lib/kprintf.h"
 #include "../../common/cstring.h"
@@ -27,6 +28,29 @@ static uint32_t g_dns = 0x0A000203u;
 
 static int g_ok;
 static uint8_t g_mac[6];
+
+/* Link driver: first NIC that comes up wins (e1000, then virtio-net).
+ * All frame I/O goes through g_drv; the stack never names a chip. */
+typedef struct {
+  const char *name;
+  int (*init)(void);
+  int (*send)(const void *buf, uint32_t len);
+  uint32_t (*recv)(void *buf, uint32_t cap);
+  int (*link)(void);
+  void (*mac)(uint8_t out[6]);
+  uint64_t (*tx_count)(void);
+  uint64_t (*rx_count)(void);
+} net_drv_t;
+
+static const net_drv_t g_e1000_drv = {
+  "e1000", e1000_init, e1000_send, e1000_recv, e1000_link, e1000_mac,
+  e1000_tx_count, e1000_rx_count
+};
+static const net_drv_t g_virtio_drv = {
+  "virtio-net", virtio_init, virtio_send, virtio_recv, virtio_link,
+  virtio_mac, virtio_tx_count, virtio_rx_count
+};
+static const net_drv_t *g_drv;
 
 typedef struct {
   uint32_t ip; /* 0 = free */
@@ -115,7 +139,7 @@ static int eth_send(const uint8_t *dst, uint16_t type, const void *pl,
   for (int i = 0; i < 6; i++) frame[6 + i] = g_mac[i];
   put16(frame + 12, type);
   if (plen) naos_memcpy(frame + 14, pl, plen);
-  return e1000_send(frame, plen + 14);
+  return g_drv->send(frame, plen + 14);
 }
 
 static int arp_send(uint16_t oper, const uint8_t *tha, uint32_t tpa) {
@@ -246,9 +270,9 @@ static void on_ip(const uint8_t *frame, uint32_t len) {
 void net_poll(void) {
   static uint8_t buf[2048];
   uint32_t len;
-  if (!g_ok) return;
+  if (!g_ok || !g_drv) return;
   for (;;) {
-    len = e1000_recv(buf, sizeof(buf));
+    len = g_drv->recv(buf, sizeof(buf));
     if (len == 0) break;
     if (len < 14) continue;
     {
@@ -324,22 +348,30 @@ void net_status(void) {
   ip_str(g_mask, msk);
   ip_str(g_gw, gw);
   ip_str(g_dns, dns);
-  kprintf("net: mac %x:%x:%x:%x:%x:%x ip %s mask %s gw %s dns %s link=%d tx=%u rx=%u\n",
+  kprintf("net: %s mac %x:%x:%x:%x:%x:%x ip %s mask %s gw %s dns %s link=%d tx=%u rx=%u\n",
+          g_drv ? g_drv->name : "none",
           (unsigned)g_mac[0], (unsigned)g_mac[1], (unsigned)g_mac[2],
           (unsigned)g_mac[3], (unsigned)g_mac[4], (unsigned)g_mac[5], ips,
-          msk, gw, dns, e1000_link(), (unsigned)e1000_tx_count(),
-          (unsigned)e1000_rx_count());
+          msk, gw, dns, g_drv ? g_drv->link() : 0,
+          (unsigned)(g_drv ? g_drv->tx_count() : 0),
+          (unsigned)(g_drv ? g_drv->rx_count() : 0));
 }
 
 void net_init(void) {
   char ips[20];
   g_ok = 0;
+  g_drv = 0;
   for (int i = 0; i < 8; i++) g_arp[i].ip = 0;
-  if (!e1000_init()) return;
-  e1000_mac(g_mac);
+  if (g_e1000_drv.init()) g_drv = &g_e1000_drv;
+  else if (g_virtio_drv.init()) g_drv = &g_virtio_drv;
+  if (!g_drv) {
+    kprintf("net: down (no supported NIC)\n");
+    return;
+  }
+  g_drv->mac(g_mac);
   g_ok = 1;
   ip_str(g_ip, ips);
-  kprintf("net: up (static %s/24)\n", ips);
+  kprintf("net: up (%s, static %s/24)\n", g_drv->name, ips);
 }
 
 /* ---- shared layer for UDP/TCP/DHCP ---- */
